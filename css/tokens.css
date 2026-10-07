@@ -1,0 +1,78 @@
+/* ==========================================================================
+   CueDesk — Design Tokens
+   Paleta Dark Mode FOH (consola estilo X32-Edit / Mixing Station)
+   ========================================================================== */
+
+:root {
+  /* --- Superficies ------------------------------------------------------ */
+  --bg-app: #121214;          /* Fondo general grafito muy oscuro */
+  --bg-panel: #16161a;        /* Paneles estructurales */
+  --bg-card: #1e1e24;         /* Tarjetas de canal / rack */
+  --bg-card-hi: #232329;      /* Tarjeta elevada / hover */
+  --bg-inset: #0c0c0f;        /* Insets profundos (pistas, LCD) */
+  --bg-topbar: #101013;       /* Header fijo */
+  --bg-rail: #16161a;         /* Riel de bancos */
+
+  /* --- Bordes ------------------------------------------------------------ */
+  --line: #26262e;            /* Borde sutil de tarjeta */
+  --line-soft: #1f1f26;       /* Borde interior */
+  --line-strong: #34343e;     /* Borde de controles */
+
+  /* --- Texto ------------------------------------------------------------- */
+  --text: #ececf1;
+  --text-dim: #9b9ba8;
+  --text-faint: #63636f;
+  --text-inv: #0a1417;
+
+  /* --- Acentos ----------------------------------------------------------- */
+  --cyan: #00bcd4;            /* Cyan base */
+  --cyan-bright: #00e5ff;     /* Cyan brillante (activos / selección) */
+  --cyan-glow: rgba(0, 229, 255, 0.55);
+  --cyan-tint: rgba(0, 188, 212, 0.12);
+  --red: #ff3b30;             /* Mute / picos */
+  --red-bright: #ff5a50;
+  --red-dark: #4a1613;        /* Mute apagado (rojo oscuro) */
+  --red-tint: rgba(255, 59, 48, 0.14);
+  --amber: #ffb300;           /* Solo / avisos / talkback */
+  --amber-dark: #453208;
+  --amber-tint: rgba(255, 179, 0, 0.13);
+  --green: #2ee06a;           /* Vúmetro verde */
+  --led-green: #26d06a;       /* LED Online */
+
+  /* --- Vúmetros ----------------------------------------------------------- */
+  --seg-green: #2ee06a;
+  --seg-green-dim: rgba(46, 224, 106, 0.075);
+  --seg-amber: #ffb300;
+  --seg-amber-dim: rgba(255, 179, 0, 0.075);
+  --seg-red: #ff3b30;
+  --seg-red-dim: rgba(255, 59, 48, 0.08);
+  --meter-peak: #d9fbff;
+
+  /* --- Faders ------------------------------------------------------------- */
+  --fader-cap: #f4f4f6;
+  --fader-cap-hi: #ffffff;
+  --fader-cap-lo: #c9c9d2;
+  --fader-track: #0a0a0d;
+
+  /* --- Tipografía --------------------------------------------------------- */
+  --font: "Inter", "Segoe UI", system-ui, -apple-system, Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-num: "Inter", "Segoe UI", system-ui, sans-serif;
+
+  /* --- Métricas de layout -------------------------------------------------- */
+  --topbar-h: 52px;
+  --globalbar-h: 44px;
+  --footer-h: 30px;
+  --rail-w: 94px;
+  --gap: 10px;
+  --radius: 10px;
+  --radius-sm: 6px;
+  --radius-lg: 14px;
+
+  /* --- Sombras ------------------------------------------------------------ */
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.025) inset,
+    0 10px 24px rgba(0, 0, 0, 0.38);
+  --shadow-btn: 0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 2px 4px rgba(0, 0, 0, 0.45);
+  --glow-cyan: 0 0 10px var(--cyan-glow), 0 0 22px rgba(0, 188, 212, 0.35);
+}

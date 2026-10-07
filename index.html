@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="dark">
+  <meta name="description" content="CueDesk — interfaz FOH de alto rendimiento para consolas Behringer X32 (estilo X32-Edit / Mixing Station).">
+  <title>CueDesk — FOH Mixer</title>
+
+  <!--
+    ============================================================================
+    CueDesk · Integración OSC (semántica Behringer X32)
+    ----------------------------------------------------------------------------
+    Todo control con parámetro de consola declara:
+      data-osc-path    → ruta OSC (ej. /ch/01/mix/fader)
+      data-osc-address → alias semántico idéntico (backend WebSocket)
+      data-osc-type    → "f" float | "i" int | "s" string
+      data-state-value → valor que representa el estado actual del control
+
+    Rutas utilizadas (X32 OSC Remote Protocol + protocolo no oficial X32/M32):
+      /ch/NN/mix/fader        level [0.0 … 1.0 (+10 dB), 1024]   float
+      /ch/NN/mix/on           enum {OFF, ON}  → 0 = Mute, 1 = Activo  int
+      /ch/NN/mix/pan          linf [-100 … +100, 2]              float
+      /ch/NN/config/name      string [12]
+      /ch/NN/config/color     enum {OFF,RD,GN,YE,BL,MG,CY,WH}
+      /ch/NN/preamp/trim      linf [-18 … +18, 0.25]  (vista GAIN)
+      /auxin/NN/… · /fxrtn/NN/… · /bus/NN/… · /dca/N/{fader,on}
+      /main/st/mix/fader · /main/st/mix/on · /main/m/…
+      /-stat/solosw/<id>      solo por tira (id = channel-id X32 + 1)
+      /config/talk/enable · /config/talk/{A|B}/level
+      /config/amixenable/{X,Y}
+
+    Los controles de vista (tabs, capas de banco, sesión, preview local) son
+    estado del cliente — igual que en X32-Edit, donde la selección de capa no
+    existe como parámetro de consola — y usan data-action.
+    ============================================================================
+  -->
+
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/header.css">
+  <link rel="stylesheet" href="css/banks.css">
+  <link rel="stylesheet" href="css/strips.css">
+</head>
+<body>
+
+  <div class="app">
+
+    <!-- ============================ HEADER FIJO ============================ -->
+    <header class="topbar">
+      <a class="brand" href="#" aria-label="CueDesk">
+        <svg class="brand__icon" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+          <path d="M2 14h3l2.5-7 3.5 15 3.5-19 3.5 21 3-12 2 5h3"
+                stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span class="brand__word">Cue<b>Desk</b></span>
+      </a>
+
+      <nav class="tabs" role="tablist" aria-label="Vistas principales">
+        <button class="tab is-active" role="tab" aria-selected="true"  data-view="mixer">Mixer</button>
+        <button class="tab"        role="tab" aria-selected="false" data-view="queue">Queue</button>
+        <button class="tab"        role="tab" aria-selected="false" data-view="routing">Routing</button>
+        <button class="tab"        role="tab" aria-selected="false" data-view="scenes">Scenes</button>
+      </nav>
+
+      <div class="topbar__status">
+        <span class="chip chip--model">X32</span>
+        <span class="chip chip--online"><i class="led led--green"></i>Online</span>
+        <span class="chip chip--loc">foh</span>
+        <button type="button" class="btn-ghost" data-action="sign-out">Sign out</button>
+      </div>
+    </header>
+
+    <!-- ====================== BARRA DE CONTROL GLOBAL ====================== -->
+    <div class="globalbar">
+
+      <div class="gb-left">
+        <button type="button" class="pillbtn" data-action="local-preview"
+                aria-pressed="false" title="Monitorización local de cue">
+          <i class="led led--off"></i>LOCAL PREVIEW
+        </button>
+        <div class="syncgrp" aria-label="Estado de sincronización">
+          <span class="sync is-on"><b>A</b> 48K</span>
+          <span class="sync">B</span>
+          <span class="sync is-on"><b>L</b> 48K</span>
+          <span class="sync">C</span>
+        </div>
+      </div>
+
+      <div class="gb-talk">
+        <span class="gb-label">Talkback</span>
+        <div class="segmented" role="group" aria-label="Talkback">
+          <button type="button" data-action="tb" data-dest="A" aria-pressed="false"
+                  data-osc-path="/config/talk/enable" data-osc-address="/config/talk/enable"
+                  data-osc-type="i" data-state-value="1">TB A</button>
+          <button type="button" data-action="tb" data-dest="B" aria-pressed="false"
+                  data-osc-path="/config/talk/enable" data-osc-address="/config/talk/enable"
+                  data-osc-type="i" data-state-value="1">B</button>
+          <button type="button" data-action="tb" data-dest="OFF" class="is-active" aria-pressed="true"
+                  data-osc-path="/config/talk/enable" data-osc-address="/config/talk/enable"
+                  data-osc-type="i" data-state-value="0">OFF</button>
+        </div>
+        <div class="hslider hslider--talk" data-slider="horizontal" data-role="talk-level"
+             data-osc-path="/config/talk/A/level" data-osc-address="/config/talk/A/level"
+             data-osc-type="f" aria-label="Nivel de talkback">
+          <span class="hslider__track"><span class="hslider__thumb"></span></span>
+        </div>
+        <output class="talk-readout" data-role="talk-readout">-00</output>
+      </div>
+
+      <div class="gb-center">
+        <button type="button" class="modebtn" data-action="amix" data-group="X"
+                aria-pressed="false"
+                data-osc-path="/config/amixenable/X" data-osc-address="/config/amixenable/X"
+                data-osc-type="i" data-state-value="0"
+                title="Automix · grupo X">X</button>
+        <button type="button" class="modebtn modebtn--wide" data-action="amix-master"
+                aria-pressed="false"
+                data-osc-path="/config/amixenable/X" data-osc-path-b="/config/amixenable/Y"
+                data-osc-address="/config/amixenable/X" data-osc-type="i" data-state-value="0"
+                title="Automix master (grupos X + Y)">AUTOMIX</button>
+        <button type="button" class="modebtn" data-action="amix" data-group="Y"
+                aria-pressed="false"
+                data-osc-path="/config/amixenable/Y" data-osc-address="/config/amixenable/Y"
+                data-osc-type="i" data-state-value="0"
+                title="Automix · grupo Y">Y</button>
+      </div>
+
+      <div class="gb-right">
+        <button type="button" class="btn-clear" data-action="clear-solo"
+                title="Envía /-stat/solosw/&lt;id&gt; 0 a cada tira en solo">
+          CLEAR SOLO
+        </button>
+      </div>
+    </div>
+
+    <!-- =============================== ESCENARIO =========================== -->
+    <main class="stage">
+
+      <!-- ------------------------------ MIXER ----------------------------- -->
+      <section class="view view--mixer" data-view-panel="mixer">
+
+        <!-- Selector de bancos (capas de cliente, estilo X32-Edit) -->
+        <aside class="bankrail" aria-label="Selector de bancos">
+          <div class="bank-list">
+            <button type="button" class="bank is-active" data-bank="ch1">Ch 1-8</button>
+            <button type="button" class="bank" data-bank="ch9">Ch 9-16</button>
+            <button type="button" class="bank" data-bank="ch17">Ch 17-24</button>
+            <button type="button" class="bank" data-bank="ch25">Ch 25-32</button>
+            <button type="button" class="bank" data-bank="aux">AUX</button>
+            <button type="button" class="bank" data-bank="fx">FX</button>
+            <button type="button" class="bank" data-bank="dca">DCA</button>
+            <button type="button" class="bank" data-bank="bus">Bus Mtx</button>
+          </div>
+          <button type="button" class="bank bank--gain" data-action="gain"
+                  aria-pressed="false" data-state-value="0"
+                  title="Alterna los faders entre nivel de mezcla y preamp trim (-18…+18 dB)">
+            GAIN
+          </button>
+        </aside>
+
+        <!-- Rack: 8 tiras de canal + master -->
+        <div class="rack">
+          <div class="channels" id="channel-rack"><!-- inyectado por mixer.js --></div>
+
+          <!-- ======================= MASTER (Main LR) ====================== -->
+          <section class="strip strip--master" data-unit="master" aria-label="Master">
+            <header class="strip__display">
+              <select class="master__select" data-action="master-select" aria-label="Bus master">
+                <option value="st">Main LR</option>
+                <option value="m">Main M/C</option>
+              </select>
+            </header>
+
+            <div class="master__label">
+              <span class="tag">LR</span><span class="master__name">Main LR</span>
+            </div>
+
+            <div class="meters">
+              <div class="meter-scale" data-side="l"></div>
+              <div class="meter-col" data-role="meter-l"></div>
+              <div class="meter-col" data-role="meter-r"></div>
+              <div class="meter-scale" data-side="r"></div>
+            </div>
+
+            <div class="fader" data-slider="vertical" data-role="fader"
+                 data-osc-path="/main/st/mix/fader" data-osc-address="/main/st/mix/fader"
+                 data-osc-type="f" aria-label="Nivel master">
+              <div class="fader__track">
+                <div class="fader__travel"><span class="fader__cap"></span></div>
+              </div>
+            </div>
+
+            <output class="readout" data-role="readout">-6.0</output>
+
+            <div class="strip__buttons">
+              <button type="button" class="btn-m" data-role="mute"
+                      data-osc-path="/main/st/mix/on" data-osc-address="/main/st/mix/on"
+                      data-osc-type="i" data-state-value="1" aria-pressed="false"
+                      title="Mute master — 0 = Mute, 1 = Activo">M</button>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <!-- ------------------------------ QUEUE ----------------------------- -->
+      <section class="view view--empty" data-view-panel="queue" hidden>
+        <div class="ph">
+          <span class="ph__icon" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+              <path d="M4 7h11M4 12h11M4 17h7M19 10v7M19 10l-3 2M19 10l3 2"
+                    stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+          </span>
+          <h2>Cue Queue</h2>
+          <p>Cola de reproducción de CueDesk. Al conectar el puente
+             <code>WebSocket</code> aquí aparecerán los cues pendientes, sus
+             niveles de ducking y su orden de disparo.</p>
+        </div>
+      </section>
+
+      <!-- ----------------------------- ROUTING ---------------------------- -->
+      <section class="view view--empty" data-view-panel="routing" hidden>
+        <div class="ph">
+          <span class="ph__icon" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+              <path d="M4 6h5l4 6h7M4 18h5l4-6M17 9l3 3-3 3"
+                    stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+          <h2>Routing</h2>
+          <p>Matriz de asignaciones de entrada/salida (AES50, CARD, OUT, P16).
+             Expone <code>/config/routing/…</code> sobre el mismo bus OSC.</p>
+        </div>
+      </section>
+
+      <!-- ------------------------------ SCENES ---------------------------- -->
+      <section class="view view--empty" data-view-panel="scenes" hidden>
+        <div class="ph">
+          <span class="ph__icon" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+              <path d="M7 4h10a1 1 0 0 1 1 1v15l-6-4-6 4V5a1 1 0 0 1 1-1z"
+                    stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+            </svg>
+          </span>
+          <h2>Scenes</h2>
+          <p>Memorias y cues de escena de la consola. Usa
+             <code>/-action</code> y <code>/show/…</code> para cargar, guardar
+             y saltar entre escenas.</p>
+        </div>
+      </section>
+    </main>
+
+    <!-- ================================ FOOTER ============================ -->
+    <footer class="footer">
+      <p>2026 StegeNet Systems. All rights reserved.</p>
+      <span class="footer__version" title="CueDesk · versión de la interfaz">v1.0.2</span>
+    </footer>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script defer src="js/osc.js"></script>
+  <script defer src="js/controls.js"></script>
+  <script defer src="js/meters.js"></script>
+  <script defer src="js/mixer.js"></script>
+  <script defer src="js/app.js"></script>
+</body>
+</html>

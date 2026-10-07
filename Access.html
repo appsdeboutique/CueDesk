@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StageNet Systems - Panel de Control FOH</title>
+    <style>
+        /* Paleta de colores Corporativa StageNet Systems */
+        :root {
+            --bg-principal: #12161a;       /* Gris Antracita Oscuro */
+            --bg-tarjeta: #1c2229;         /* Gris de componentes */
+            --texto-blanco: #f0f4f8;       /* Blanco premium */
+            --texto-mutado: #7a8b9e;       /* Gris de telemetría */
+            --cian-stagenet: #00f0ff;      /* Cian/Turquesa reactivo */
+            --rojo-alerta: #ff4a4a;
+        }
+
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-principal);
+            color: var(--texto-blanco);
+            user-select: none;
+            overflow-x: hidden;
+        }
+
+        /* Cabecera limpia de grado de Infraestructura */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 25px;
+            background-color: #0b0e11;
+            border-bottom: 2px solid #1a222a;
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 1.2rem;
+            letter-spacing: 1px;
+            color: var(--texto-blanco);
+        }
+
+        header h1 span {
+            color: var(--cian-stagenet);
+            font-weight: bold;
+        }
+
+        .status-badge {
+            background: rgba(0, 240, 255, 0.1);
+            border: 1px solid var(--cian-stagenet);
+            color: var(--cian-stagenet);
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+
+        /* EL BÚNKER: Interrupción de Validación Obligatoria (Etapa 2) */
+        .overlay-interrupcion {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(9, 11, 14, 0.95);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            transition: all 0.3s ease;
+        }
+
+        .modal-validacion {
+            background-color: var(--bg-tarjeta);
+            border: 2px solid var(--cian-stagenet);
+            box-shadow: 0 0 30px rgba(0, 240, 255, 0.2);
+            width: 90%;
+            max-width: 500px;
+            border-radius: 12px;
+            padding: 30px;
+            box-sizing: border-box;
+            text-align: center;
+        }
+
+        .modal-validacion h2 {
+            margin-top: 0;
+            color: var(--cian-stagenet);
+            font-size: 1.4rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .mac-badge {
+            background: #12161a;
+            padding: 8px 15px;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 1.1rem;
+            color: var(--texto-blanco);
+            border: 1px solid #2a3440;
+            display: inline-block;
+            margin: 15px 0;
+        }
+
+        .musician-info {
+            font-size: 1.2rem;
+            margin-bottom: 25px;
+            font-weight: 500;
+        }
+
+        .selector-bus {
+            width: 100%;
+            background-color: #12161a;
+            border: 2px solid #2a3440;
+            color: var(--texto-blanco);
+            padding: 15px;
+            font-size: 1.1rem;
+            border-radius: 8px;
+            outline: none;
+            margin-bottom: 25px;
+            cursor: pointer;
+            transition: border 0.2s;
+        }
+
+        .selector-bus:focus {
+            border-color: var(--cian-stagenet);
+        }
+
+        /* Botón gigante táctil de 5 segundos */
+        .btn-aprobar {
+            width: 100%;
+            background-color: var(--cian-stagenet);
+            color: #090b0e;
+            border: none;
+            padding: 18px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 4px 15px rgba(0, 240, 255, 0.3);
+            transition: transform 0.1s, background-color 0.2s;
+        }
+
+        .btn-aprobar:active {
+            transform: scale(0.98);
+            background-color: #00cbd6;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>STAGENET <span>SYSTEMS</span></h1>
+        <div class="status-badge">CUEBOX V1 LIVE</div>
+    </header>
+
+    <!-- OBLIGATORY AUTH INTERRUPTER (Se muestra por WebSocket cuando entra una MAC nueva) -->
+    <div class="overlay-interrupcion" id="interrupter-layer">
+        <div class="modal-validacion">
+            <h2>🚨 Solicitud de Acceso Inmediato</h2>
+            <p style="color: var(--texto-mutado); margin-bottom: 5px;">Se ha detectado un nuevo dispositivo en el escenario</p>
+            
+            <div class="musician-info">Músico: <span id="musician-name-placeholder" style="color: #fff; font-weight: bold;">Carlos Bajo</span></div>
+            
+            <p style="color: var(--texto-mutado); margin: 0;">Dirección MAC del Hardware:</p>
+            <div class="mac-badge" id="mac-placeholder">a1:b2:c3:d4:e5:f6</div>
+
+            <label for="bus-select" style="display: block; text-align: left; margin-bottom: 8px; color: var(--texto-mutado); font-size: 0.9rem;">Asignar Mix Bus Físico de Retorno:</label>
+            <select class="selector-bus" id="bus-select">
+                <option value="1">Mix Bus 01 (In-Ears Vocalista)</option>
+                <option value="2" selected>Mix Bus 02 (In-Ears Bajista)</option>
+                <option value="3">Mix Bus 03 (In-Ears Guitarra)</option>
+                <option value="4">Mix Bus 04 (In-Ears Batería)</option>
+                <option value="5">Mix Bus 05 (Aux Monitor Suelo)</option>
+            </select>
+
+            <button class="btn-aprobar" onclick="ejecutarAprobacionFoh()">Aprobar y Desbloquear Músico</button>
+        </div>
+    </div>
+
+    <script>
+        // Lógica de simulación inmediata en el navegador
+        function ejecutarAprobacionFoh() {
+            const selectBus = document.getElementById('bus-select').value;
+            const mac = document.getElementById('mac-placeholder').innerText;
+            
+            console.log(`[FOH Action] Validando MAC ${mac} en el Bus ${selectBus}`);
+            
+            // Aquí tu WebSocket real enviará la trama de Etapa 2 a Node.js:
+            // socket.send(JSON.stringify({ event: 'ADMIN_APPROVE', mac: mac, busId: selectBus }));
+
+            // Efecto visual instantáneo: el búnker se abre en menos de lo que dura un pestañeo
+            const layer = document.getElementById('interrupter-layer');
+            layer.style.opacity = '0';
+            setTimeout(() => {
+                layer.style.display = 'none';
+                alert(`¡Músico autorizado! El Fader YO del Bus 0${selectBus} ya está operativo.`);
+            }, 300);
+        }
+    </script>
+</body>
+</html>
+

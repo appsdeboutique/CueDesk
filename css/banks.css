@@ -1,0 +1,100 @@
+/* ==========================================================================
+   CueDesk — Panel izquierdo: selector de bancos (botonera de hardware)
+   ========================================================================== */
+
+.bankrail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  min-height: 0;
+  padding: 8px;
+  background: var(--bg-rail);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+}
+
+.bank-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Bloque estilo hardware */
+.bank {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 38px;
+  flex: none;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #26262e 0%, #1a1a20 100%);
+  border: 1px solid var(--line-strong);
+  color: var(--text-dim);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  box-shadow: var(--shadow-btn);
+  transition: color 0.14s, background 0.14s, border-color 0.14s,
+    box-shadow 0.14s, transform 0.06s;
+}
+
+.bank:hover {
+  color: var(--text);
+  background: linear-gradient(180deg, #2c2c35 0%, #1f1f26 100%);
+}
+
+.bank:active {
+  transform: translateY(1px);
+}
+
+/* Seleccionado / iluminado en cyan */
+.bank.is-active {
+  color: var(--cyan-bright);
+  background: linear-gradient(180deg, rgba(0, 229, 255, 0.16), rgba(0, 188, 212, 0.07));
+  border-color: rgba(0, 229, 255, 0.65);
+  box-shadow: 0 0 14px rgba(0, 229, 255, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  text-shadow: 0 0 10px rgba(0, 229, 255, 0.75);
+}
+
+.bank.is-active::before {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 16px;
+  border-radius: 2px;
+  background: var(--cyan-bright);
+  box-shadow: 0 0 8px var(--cyan-bright);
+}
+
+/* Botón GAIN dedicado, anclado abajo */
+.bank--gain {
+  height: 34px;
+  font-size: 11px;
+  letter-spacing: 1.6px;
+  background: linear-gradient(180deg, #20202a, #17171d);
+}
+
+.bank--gain.is-active {
+  color: #1a1000;
+  background: linear-gradient(180deg, #ffcf5c, var(--amber));
+  border-color: var(--amber);
+  text-shadow: none;
+  box-shadow: 0 0 14px rgba(255, 179, 0, 0.45), var(--shadow-btn);
+}
+
+.bank--gain.is-active::before {
+  background: #1a1000;
+  box-shadow: none;
+}
+
+.bank--gain:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
