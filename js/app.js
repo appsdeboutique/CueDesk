@@ -190,14 +190,15 @@ CueDesk.app = { view: "mixer" };
       });
     });
 
-    // Vista inicial por URL: ?view=mixer | queue | routing | scenes
-    // (usada por el lanzador local CueDesk_Mixer.bat)
+    // Vista inicial por URL: ?view=mixer | setup | routing | meter | scenes
+    // (usada por el lanzador local CueDesk_Mixer.bat); nunca selecciona una
+    // solapa deshabilitada
     const forced = new URLSearchParams(window.location.search).get("view");
     if (forced) {
       const target = tabs.find(function (t) {
         return t.dataset.view === forced;
       });
-      if (target) select(target);
+      if (target && !target.disabled) select(target);
     }
   }
 
@@ -375,7 +376,7 @@ CueDesk.app = { view: "mixer" };
         gainBtn.classList.toggle("is-active", on);
         gainBtn.setAttribute("aria-pressed", on ? "true" : "false");
         gainBtn.setAttribute("data-state-value", on ? "1" : "0");
-        toast(on ? "Gain view · preamp trim -18…+18 dB" : "Mix view · faders de nivel");
+        toast(on ? "Gain view · headamp -12…+60 dB (trim en aux)" : "Mix view · faders de nivel");
       });
     }
 

@@ -66,7 +66,7 @@ CueDesk.Mixer = (function () {
     R: { level: Meters.MASTER_VOICE.base },
   };
 
-  /** Niveles reales recibidos del backend (/meters/1); TTL para caducar. */
+  /** Niveles reales (dB, ya convertidos del lineal del X32); TTL para caducar. */
   const EXT_TTL = 1200;
   let masterExt = null; // { L, R, at }
 
@@ -74,6 +74,10 @@ CueDesk.Mixer = (function () {
 
   function p2(n) {
     return String(n).padStart(2, "0");
+  }
+
+  function p3(n) {
+    return String(n).padStart(3, "0");
   }
 
   function escapeHtml(s) {
@@ -111,7 +115,7 @@ CueDesk.Mixer = (function () {
           name: "/ch/" + id + "/config/name",
           color: "/ch/" + id + "/config/color",
           solo: "/-stat/solosw/" + id,       // ch01 → solosw/01
-          trim: "/ch/" + id + "/preamp/trim",
+          gain: "/headamp/" + p3(n - 1) + "/gain",
         };
       case "aux":
         return {
@@ -190,7 +194,7 @@ CueDesk.Mixer = (function () {
       paths: pathsFor(bank.kind, n),
       hasPan: bank.kind !== "dca",
       faderNorm: dB.toFader(DEFAULT_DB[i]),
-      gainNorm: 0.5,                       // 0 dB de trim
+      gainNorm: bank.kind === "ch" ? 12 / 72 : 0.5, // 0 dB (headamp en ch / trim en aux)
       pan: (DEFAULT_PAN[i] + 100) / 200,   // norm 0…1
       muted: demo ? DEFAULT_MUTE[i] : false,
       solo: demo ? DEFAULT_SOLO[i] : false,
@@ -228,6 +232,13 @@ CueDesk.Mixer = (function () {
       lifeUnsubs.push(
         OSC.on(m.paths.pan, function (v) {
           m.pan = dB.clamp01((parseFloat(v) + 100) / 200);
+        })
+      );
+    }
+    if (m.paths.gain) {
+      lifeUnsubs.push(
+        OSC.on(m.paths.gain, function (v) {
+          m.gainNorm = dB.clamp01((parseFloat(v) + 12) / 72);
         })
       );
     }
@@ -280,6 +291,8 @@ CueDesk.Mixer = (function () {
       if (path === m.paths.fader) m.faderNorm = dB.clamp01(parseFloat(value));
       else if (path === m.paths.pan)
         m.pan = dB.clamp01((parseFloat(value) + 100) / 200);
+      else if (m.paths.gain && path === m.paths.gain)
+        m.gainNorm = dB.clamp01((parseFloat(value) + 12) / 72);
       else if (m.paths.trim && path === m.paths.trim)
         m.gainNorm = dB.clamp01((parseFloat(value) + 18) / 36);
     });
@@ -334,9 +347,82 @@ CueDesk.Mixer = (function () {
     );
   }
 
+  /* Escala impresa del fader (sólo tiras de canal): nivel X32 con las marcas
+     del propio apéndice Maillot (tope +10 = 1.0, 0 dB = 0.75, base -∞ = 0) o,
+     en modo GAIN, trim lineal -18…+18 (linf step 0.250). Los --p son
+     fracción del recorrido del pomo: como el vúmetro ocupa el 75 % de ese
+     mismo carril con la base común, un mismo dB cae a la altura exacta de su
+     etiqueta en la escala del vúmetro. */
+  const FADER_SCALE_MIX = [
+    { db: 10, label: "+10" },
+    { db: 0, label: "0" },
+    { db: -20, label: "-20" },
+    { db: -40, label: "-40" },
+    { db: -60, label: "-60" },
+    { db: -Infinity, label: "-∞" },
+  ];
+  /* Escalas del modo GAIN (marcas cada 12 dB sobre normas lineales):
+     - headamp (canales): /headamp/NNN/gain -12…+60 dB, paso 0.5 (Maillot)
+     - trim   (aux):      /auxin/NN/preamp/trim -18…+18 dB, paso 0.25 (Maillot) */
+  const FADER_SCALE_HEADAMP = [
+    { norm: 1, label: "+60" },
+    { norm: 5 / 6, label: "+48" },
+    { norm: 4 / 6, label: "+36" },
+    { norm: 0.5, label: "+24" },
+    { norm: 2 / 6, label: "+12" },
+    { norm: 1 / 6, label: "0" },
+    { norm: 0, label: "-12" },
+  ];
+
+  const FADER_SCALE_TRIM = [
+    { norm: 1, label: "+18" },
+    { norm: 5 / 6, label: "+12" },
+    { norm: 4 / 6, label: "+6" },
+    { norm: 0.5, label: "0" },
+    { norm: 2 / 6, label: "-6" },
+    { norm: 1 / 6, label: "-12" },
+    { norm: 0, label: "-18" },
+  ];
+
+  /** Especificación del modo GAIN de una tira (o null si no admite). */
+  function gainSpec(m) {
+    if (m.paths.gain) {
+      return {
+        path: m.paths.gain,
+        min: -12,
+        range: 72,
+        step: 0.5,
+        scale: FADER_SCALE_HEADAMP,
+        label: "Ganancia",
+      };
+    }
+    if (m.paths.trim) {
+      return {
+        path: m.paths.trim,
+        min: -18,
+        range: 36,
+        step: 0.25,
+        scale: FADER_SCALE_TRIM,
+        label: "Trim",
+      };
+    }
+    return null;
+  }
+
+  function faderScaleHTML(gs) {
+    const items = gs ? gs.scale : FADER_SCALE_MIX;
+    return items
+      .map(function (it) {
+        const p = gs ? it.norm : dB.toFader(it.db);
+        return '<span style="--p:' + p + '">' + it.label + "</span>";
+      })
+      .join("");
+  }
+
   function stripHTML(m) {
-    const isGain = gainMode && !!m.paths.trim;
-    const faderPath = isGain ? m.paths.trim : m.paths.fader;
+    const gs = gainMode ? gainSpec(m) : null;
+    const isGain = !!gs;
+    const faderPath = gs ? gs.path : m.paths.fader;
 
     return (
       '<section class="strip" data-unit="' + m.key + '">' +
@@ -353,16 +439,21 @@ CueDesk.Mixer = (function () {
           "</div>" +
         "</header>" +
         (m.hasPan ? panHTML(m) : '<div class="strip__gap" aria-hidden="true"></div>') +
-        '<div class="meters">' +
-          '<div class="meter-scale" data-side="l"></div>' +
-          '<div class="meter-col" data-role="meter-l"></div>' +
-          '<div class="meter-col" data-role="meter-r"></div>' +
-          '<div class="meter-scale" data-side="r"></div>' +
-        "</div>" +
-        '<div class="fader" data-slider="vertical" data-role="fader" ' +
-          'data-osc-path="' + faderPath + '" data-osc-address="' + faderPath + '" data-osc-type="f" ' +
-          'aria-label="Nivel ' + escapeHtml(m.name) + '">' +
-          '<div class="fader__track"><div class="fader__travel"><span class="fader__cap"></span></div></div>' +
+        // Núcleo: fader a la izquierda, vúmetro mono a la derecha (canal mono)
+        '<div class="strip__core">' +
+          '<div class="fader fader--scale" data-slider="vertical" data-role="fader" ' +
+            'data-osc-path="' + faderPath + '" data-osc-address="' + faderPath + '" data-osc-type="f" ' +
+            'aria-label="' + (gs ? gs.label + " " : "Nivel ") + escapeHtml(m.name) + '">' +
+            '<div class="fader__scale' + (isGain ? " is-gain" : "") + '" aria-hidden="true">' +
+              faderScaleHTML(gs) +
+            "</div>" +
+            '<div class="fader__track"><div class="fader__travel"><span class="fader__cap"></span></div></div>' +
+          "</div>" +
+          '<div class="meters">' +
+            '<div class="meter-scale" data-side="l"></div>' +
+            '<div class="meter-col" data-role="meter-l"></div>' +
+            '<div class="meter-scale" data-side="r"></div>' +
+          "</div>" +
         "</div>" +
         '<output class="readout' + (isGain ? " is-gain" : "") + '" data-role="readout">0.0</output>' +
         '<div class="strip__buttons">' +
@@ -382,24 +473,27 @@ CueDesk.Mixer = (function () {
   /* ------------------------------------------------------------- wiring */
 
   function wireStrip(section, m) {
-    const isGain = gainMode && !!m.paths.trim;
+    const gs = gainMode ? gainSpec(m) : null;
+    const isGain = !!gs;
 
     /* Fader principal */
     const faderEl = section.querySelector('[data-role="fader"]');
     Controls.mount(faderEl, {
       path: faderEl.getAttribute("data-osc-path"),
       type: "f",
-      value: isGain ? m.gainNorm : m.faderNorm,
-      display: isGain ? Controls.displayGain : Controls.displayDb,
+      value: gs ? m.gainNorm : m.faderNorm,
+      display: gs
+        ? function (v) { return dB.fmtGain(gs.min + v * gs.range); }
+        : Controls.displayDb,
       readout: section.querySelector('[data-role="readout"]'),
-      reset: isGain ? 0.5 : dB.toFader(0),
+      reset: gs ? (0 - gs.min) / gs.range : dB.toFader(0),
       throttle: 45,
-      snap: isGain ? 1 / 72 : 0, // paso de 0.5 dB en trim (-18…+18)
-      toOsc: isGain
-        ? function (v) { return Math.round((-18 + v * 36) * 2) / 2; }
+      snap: gs ? gs.step / gs.range : 0, // headamp 0.5/72 ó trim 0.25/36 (ambos 1/144)
+      toOsc: gs
+        ? function (v) { return Math.round((gs.min + v * gs.range) / gs.step) * gs.step; }
         : function (v) { return v; },
-      fromOsc: isGain
-        ? function (v) { return (parseFloat(v) + 18) / 36; }
+      fromOsc: gs
+        ? function (v) { return (parseFloat(v) - gs.min) / gs.range; }
         : function (v) { return parseFloat(v); },
     });
 
@@ -466,15 +560,13 @@ CueDesk.Mixer = (function () {
       OSC.send(m.paths.name, v, "s", { commit: true });
     }
 
-    /* Vúmetros */
-    const colL = section.querySelector('[data-role="meter-l"]');
-    const colR = section.querySelector('[data-role="meter-r"]');
+    /* Vúmetro mono del canal: una sola columna (el canal no es estéreo) */
+    const col = section.querySelector('[data-role="meter-l"]');
     Meters.addSim(function (dt) {
       Meters.stepVoice(m.sim.L, m.voice, dt);
       Meters.stepVoice(m.sim.R, m.voice, dt);
     });
-    Meters.register(colL, function () { return meterLevel(m, "L"); });
-    Meters.register(colR, function () { return meterLevel(m, "R"); });
+    Meters.register(col, function () { return meterLevel(m, "L"); });
   }
 
   /**
@@ -496,6 +588,12 @@ CueDesk.Mixer = (function () {
    *   [[L,R], [L,R], …]  → 8 tiras + master en el índice 8
    *   [L, R, L, R, …]    → formato plano L/R por tira
    *   { levels: [...] }  → envoltorio con nombre
+   *
+   * Unidades (p. Maillot, "Unofficial X32/M32 OSC Protocol"): el X32 envía
+   * los vúmetros como float lineal 0.0…1.0 (1.0 = 0 dBFS; cabecera interna
+   * hasta 8.0 = +18 dBfs). Si el paquete viene todo ≥ 0 se convierte
+   * lineal→dB aquí; si trae algún valor negativo, el backend ya lo entregó
+   * en dB y se toma tal cual. En m.ext siempre queda dB.
    */
   function applyMeterPacket(v) {
     let list = v;
@@ -503,10 +601,27 @@ CueDesk.Mixer = (function () {
     if (!Array.isArray(list) || !list.length) return;
 
     const at = perfNow();
+
+    // Detección de unidades sobre todos los valores del paquete
+    const raw = [];
+    if (Array.isArray(list[0])) {
+      list.forEach(function (p) {
+        if (Array.isArray(p)) raw.push(num(p[0]), num(p[1] === undefined ? p[0] : p[1]));
+      });
+    } else {
+      list.forEach(function (x) { raw.push(num(x)); });
+    }
+    const linear = raw.length > 0 && raw.every(function (x) { return x >= 0; });
+    const val = function (x) {
+      // 0 lineal = silencio → -100 dB: finito, para que el TTL lo distinga
+      // de "sin dato" (null) y el vúmetro caiga a la base en vez de simulación
+      return linear && x !== null ? Math.max(-100, dB.fromLinear(x)) : x;
+    };
+
     const pair = function (p) {
       return {
-        L: num(p[0]),
-        R: num(p[1] === undefined ? p[0] : p[1]),
+        L: val(num(p[0])),
+        R: val(num(p[1] === undefined ? p[0] : p[1])),
         at: at,
       };
     };
@@ -520,12 +635,12 @@ CueDesk.Mixer = (function () {
       }
     } else {
       activeStrips.forEach(function (m, i) {
-        m.ext = { L: num(list[i * 2]), R: num(list[i * 2 + 1]), at: at };
+        m.ext = { L: val(num(list[i * 2])), R: val(num(list[i * 2 + 1])), at: at };
       });
       if (list.length > activeStrips.length * 2) {
         masterExt = {
-          L: num(list[activeStrips.length * 2]),
-          R: num(list[activeStrips.length * 2 + 1]),
+          L: val(num(list[activeStrips.length * 2])),
+          R: val(num(list[activeStrips.length * 2 + 1])),
           at: at,
         };
       }

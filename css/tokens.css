@@ -10,7 +10,7 @@
   --bg-card: #1e1e24;         /* Tarjetas de canal / rack */
   --bg-card-hi: #232329;      /* Tarjeta elevada / hover */
   --bg-inset: #0c0c0f;        /* Insets profundos (pistas, LCD) */
-  --bg-topbar: #101013;       /* Header fijo */
+  --bg-topbar: #111113;       /* Header fijo */
   --bg-rail: #16161a;         /* Riel de bancos */
 
   /* --- Bordes ------------------------------------------------------------ */
@@ -25,10 +25,10 @@
   --text-inv: #0a1417;
 
   /* --- Acentos ----------------------------------------------------------- */
-  --cyan: #00bcd4;            /* Cyan base */
-  --cyan-bright: #00e5ff;     /* Cyan brillante (activos / selección) */
-  --cyan-glow: rgba(0, 229, 255, 0.55);
-  --cyan-tint: rgba(0, 188, 212, 0.12);
+  --cyan: #00c0ce;            /* Cyan de marca (único) */
+  --cyan-bright: #00c0ce;     /* Cyan de marca (activos / selección) */
+  --cyan-glow: rgba(0, 192, 206, 0.55);
+  --cyan-tint: rgba(0, 192, 206, 0.12);
   --red: #ff3b30;             /* Mute / picos */
   --red-bright: #ff5a50;
   --red-dark: #4a1613;        /* Mute apagado (rojo oscuro) */
@@ -60,8 +60,9 @@
   --font-num: "Inter", "Segoe UI", system-ui, sans-serif;
 
   /* --- Métricas de layout -------------------------------------------------- */
-  --topbar-h: 52px;
-  --globalbar-h: 44px;
+  --topbar-h: 56px;
+  --viewbar-h: 56px;
+  --globalbar-h: 88px;
   --footer-h: 30px;
   --rail-w: 94px;
   --gap: 10px;
@@ -74,5 +75,5 @@
     0 10px 24px rgba(0, 0, 0, 0.38);
   --shadow-btn: 0 1px 0 rgba(255, 255, 255, 0.06) inset,
     0 2px 4px rgba(0, 0, 0, 0.45);
-  --glow-cyan: 0 0 10px var(--cyan-glow), 0 0 22px rgba(0, 188, 212, 0.35);
+  --glow-cyan: 0 0 10px var(--cyan-glow), 0 0 22px rgba(0, 192, 206, 0.35);
 }

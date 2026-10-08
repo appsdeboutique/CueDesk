@@ -416,7 +416,7 @@
 }
 
 .fader.is-dragging .fader__cap {
-  box-shadow: 0 0 0 1.5px var(--cyan-bright), 0 0 18px rgba(0, 229, 255, 0.5),
+  box-shadow: 0 0 0 1.5px var(--cyan-bright), 0 0 18px rgba(0, 192, 206, 0.5),
     0 5px 9px rgba(0, 0, 0, 0.65);
 }
 
@@ -513,6 +513,100 @@
 }
 
 /* --------------------------------------------------------------------------
+   Núcleo: vúmetros + fader en paralelo
+   -------------------------------------------------------------------------- */
+
+/* Contenedor que alinea los vúmetros y el fader lado a lado */
+.strip__core {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 8px; /* Distancia perfecta y compacta entre vúmetro y fader */
+    width: 100%;
+    padding: 4px 0;
+}
+
+/* Ajustes sobre el bloque superior (medidos a 1296 px): el núcleo crece para
+   ocupar el alto restante —lectura y botones M/S al pie en todas las tiras—
+   y sus hijos se estiran para que la columna LED y el recorrido del fader
+   queden a plena altura. Vúmetro a su ancho natural; el fader absorbe el
+   hueco y el pomo (30 px) queda centrado sin tocar los bordes. */
+.strip__core {
+  flex: 1;
+  min-height: 0;
+}
+
+.strip__core .meters,
+.strip__core .fader {
+  align-self: stretch;
+}
+
+.strip__core .meters {
+  flex: none;
+
+  /* El fader X32 recorre -∞…+10 dB y el vúmetro -∞…0 dB; como 0 dB es el
+     75 % del recorrido (toFader(0) = 0.75), el bloque de vúmetros mide el
+     75 % del carril y ancla su base a la del carril (-∞ = -∞): la cima del
+     vúmetro (0 dB) queda exactamente a la altura del pomo en 0 dB.
+     Constantes: carril = alto del núcleo − 46 (padding del fader 12+8 y
+     topes del travel 13+13) y su base cae 21 px sobre el pie del núcleo
+     (8+13); con el padding del bloque (6+2) → alto calc(75% − 26.5px) y
+     margen inferior 19 px. */
+  align-self: flex-end;
+  height: calc(75% - 26.5px);
+  margin-bottom: 19px;
+}
+
+.strip__core .fader {
+  flex: 1 1 auto;
+}
+
+.strip__core .fader__cap {
+  width: 30px;
+}
+
+/* --------------------------------------------------------------------------
+   Escala impresa del fader (sólo tiras de canal)
+   -------------------------------------------------------------------------- */
+
+/* El pomo de 30 px taparía una escala centrada: en las tiras de canal el
+   recorrido se desplaza al borde derecho (padding-right 5 px — el pomo queda
+   a 5 px del hueco de 8 px hacia los vúmetros) y la escala ocupa la banda
+   izquierda. Las etiquetas usan el mismo sistema de --p que la escala del
+   vúmetro y el mismo recorrido (top 25 = padding 12 + tope 13; bottom 21 =
+   8 + 13), así la marca 0 dB de ambas cae a la Y exacta: toFader(0) = 0.75
+   = cima de la columna del vúmetro (75 % del carril). */
+.strip__core .fader--scale {
+  justify-content: flex-end;
+  padding: 12px 5px 8px 0;
+}
+
+.fader__scale {
+  position: absolute;
+  left: 0;
+  right: 29px; /* borde izquierdo del pomo (W−27) + 2 px de aire */
+  top: 25px;
+  bottom: 21px;
+  pointer-events: none; /* el arrastre del fader sigue siendo del carril entero */
+}
+
+.fader__scale span {
+  position: absolute;
+  right: 0;
+  bottom: calc(var(--p, 0) * 100%);
+  transform: translateY(50%);
+  font-size: 8.5px;
+  line-height: 1;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Modo GAIN: la escala (headamp -12…+60 en canales, trim en aux) usa el mismo
+   color faint que la escala de mezcla; sólo el readout va en ámbar. */
+
+/* --------------------------------------------------------------------------
    Sección Master derecha (Main LR)
    -------------------------------------------------------------------------- */
 
@@ -573,7 +667,7 @@
   padding: 0 5px;
   border-radius: 4px;
   background: var(--cyan-tint);
-  border: 1px solid rgba(0, 188, 212, 0.4);
+  border: 1px solid rgba(0, 192, 206, 0.4);
   color: var(--cyan-bright);
   font-size: 9px;
   font-weight: 800;
@@ -610,11 +704,37 @@
   .meter-scale span {
     font-size: 8px;
   }
+
+  .fader__scale span {
+    font-size: 8px;
+  }
+}
+
+/* Por debajo de ~1280 px la columna del fader no alcanza los 45 px que
+   piden pomo (30) + escala (~14): se cede la escala y el recorrido vuelve
+   al centro — el mismo criterio con el que ≤1180 cede la escala izquierda
+   de los vúmetros. */
+@media (max-width: 1280px) {
+  .strip__core .fader--scale {
+    justify-content: center;
+    padding: 12px 0 8px;
+  }
+
+  .fader__scale {
+    display: none;
+  }
 }
 
 @media (max-width: 1180px) {
   .strip {
     min-width: 88px;
+  }
+
+  /* Canales estrechos (88-110 px): se cede la escala izquierda al hueco del
+     fader; la derecha conserva las marcas -∞…0 dB. El master (sin :not)
+     mantiene sus dos escalas y sus dos columnas. */
+  .strip:not(.strip--master) .strip__core .meter-scale[data-side="l"] {
+    display: none;
   }
 
   .fader__cap {

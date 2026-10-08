@@ -239,9 +239,10 @@ CueDesk.Controls = (function () {
     return dB.fmt(dB.fromFader(norm));
   }
 
-  /** Modo GAIN: recorrido lineal -18…+18 dB (preamp/trim). */
+  /** Modo GAIN aux: recorrido lineal -18…+18 dB (preamp/trim), paso 0.25.
+      Los canales usan headamp (-12…+60) y su formato se compone en mixer.js. */
   function displayGain(norm) {
-    return dB.fmt(-18 + norm * 36);
+    return dB.fmtGain(-18 + norm * 36);
   }
 
   /** Talkback: "-00" / "+04" */

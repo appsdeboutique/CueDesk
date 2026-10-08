@@ -18,6 +18,7 @@
  *   { "action": "osc_recv", "address": "/ch/01/mix/on", "args": [0] }
  *   { "address": "/ch/01/mix/pan", "args": [-24] }          (sin action)
  *   { "action": "meters", "address": "/meters/1", "args": [[L,R], …] }
+ *       (float lineal 0…1 — 1.0 = 0 dBFS, p. Maillot; Mixer lo convierte a dB)
  *   [ paquete1, paquete2, … ]                               (lote)
  *
  * Reconexión: backoff exponencial con jitter (600 ms → 30 s) + keepalive

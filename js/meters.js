@@ -1,10 +1,13 @@
 /* ==========================================================================
  * CueDesk — meters.js
- * Vúmetros LED duales: construcción de segmentos, escala numérica y
- * simulación de respuesta en tiempo real (ballistics + peak hold).
+ * Vúmetros LED (columna mono en canales, dual en master): construcción de
+ * segmentos, escala numérica y simulación de respuesta en tiempo real
+ * (ballistics + peak hold).
  *
- * En producción los niveles reales llegan por WS con
- *   /meters/<id>   (suscripción X32)  →  CueDesk.OSC.receive("/meters/…", dB)
+ * En producción los niveles reales llegan por WS con /meters/<id> (suscripción
+ * X32) como float lineal 0…1 — 1.0 = 0 dBFS, p. Maillot — y Mixer los convierte
+ * a dB en applyMeterPacket. Este módulo trabaja siempre en dB y pinta el
+ * recorrido -∞…0 dB (el fader X32 llega a +10 dB: 0 dB = 75 % del recorrido).
  * ========================================================================== */
 
 window.CueDesk = window.CueDesk || {};
@@ -14,15 +17,24 @@ CueDesk.Meters = (function () {
 
   const SEG = 40; // segmentos LED por columna
 
-  /** Escala impresa a los lados de los vúmetros. */
+  /** Escala impresa a los lados: recorrido de -∞ (base) a 0 dB (tope). */
   const SCALE = [
-    { db: 10, label: "+10" },
     { db: 0, label: "0" },
     { db: -20, label: "-20" },
     { db: -40, label: "-40" },
     { db: -60, label: "-60" },
     { db: -Infinity, label: "-∞" },
   ];
+
+  /* El vúmetro recorre de -∞ a 0 dB: se normaliza la trisa del fader X32
+     (0 dB = 0.75 de su recorrido) para que 0 dB ocupe el tope exacto de la
+     columna y -∞ la base. */
+  const TOP = dB.toFader(0);
+
+  function meterPos(db) {
+    const p = dB.toFader(db) / TOP;
+    return p < 0 ? 0 : p > 1 ? 1 : p;
+  }
 
   /** Personalidades sonoras simuladas por posición de tira (0…7). */
   const VOICES = [
@@ -58,7 +70,7 @@ CueDesk.Meters = (function () {
     SCALE.forEach(function (item) {
       const span = document.createElement("span");
       span.textContent = item.label;
-      span.style.setProperty("--p", dB.toFader(item.db));
+      span.style.setProperty("--p", meterPos(item.db));
       frag.appendChild(span);
     });
     el.appendChild(frag);
@@ -72,7 +84,7 @@ CueDesk.Meters = (function () {
     // Orden DOM de abajo → arriba (flex-direction: column-reverse)
     for (let i = 0; i < SEG; i++) {
       const p = i / (SEG - 1);
-      const db = dB.fromFader(p);
+      const db = dB.fromFader(p * TOP); // 0 dB = tope de la columna
       const seg = document.createElement("i");
       seg.className =
         "seg " + (db >= 0 ? "is-red" : db >= -10 ? "is-amber" : "is-green");
@@ -156,7 +168,7 @@ CueDesk.Meters = (function () {
   }
 
   function toLit(db) {
-    const pos = dB.toFader(db);
+    const pos = meterPos(db);
     if (pos <= 0.004) return 0;
     return Math.max(0, Math.min(SEG, Math.round(pos * SEG)));
   }
@@ -198,7 +210,7 @@ CueDesk.Meters = (function () {
       const lit = toLit(st.shown);
       if (lit !== st.lit) applyLit(st, lit);
 
-      const pk = dB.toFader(st.peakDb);
+      const pk = meterPos(st.peakDb);
       if (Math.abs(pk - st.lastPk) > 0.002) {
         st.peakEl.style.setProperty("--pk", pk);
         st.lastPk = pk;

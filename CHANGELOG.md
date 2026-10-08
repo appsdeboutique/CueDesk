@@ -3,6 +3,23 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 Versionado semántico (SemVer): `MAJOR.MINOR.PATCH`.
 
+## [1.0.4] — 2026-10-08
+
+### Added
+- **Viewbar como tab-bar continua**: la barra de vistas pasa a ser una tira unida de solapas `.tab` (gap 0, radio sólo arriba `4px 4px 0 0`, sin box-shadow); la solapa activa se funde con el panel y se remata con una pastilla superior. Orden: Mixer · Setup · Routing · Meter · Scenes · Queue (`disabled`).
+- **Escala impresa del fader de mezcla** (`+10 / 0 / -20 / -40 / -60 / -∞`), derivada del taper X32.
+- **Escala del modo GAIN** con marcas cada 12 dB.
+
+### Changed
+- **Modo GAIN en canales = ganancia de entrada (headamp)**: el fader controla `/headamp/NNN/gain` con recorrido lineal **-12 … +60 dB** y paso de 0.5 dB (Maillot: `linf [-12, 60, 0.5]`; `NNN` = nº de canal − 1, 3 dígitos), con escala `+60 / +48 / +36 / +24 / +12 / 0 / -12`. En el banco **AUX** se conserva el trim digital (`/auxin/NN/preamp/trim`, -18…+18 dB, paso 0.25) porque las entradas aux no exponen headamp.
+- **Escala GAIN en el mismo color que las demás**: se elimina el tinte ámbar de `.fader__scale.is-gain` (ahora `--text-faint`); el readout numérico sigue en ámbar.
+- **Cian unificado `#00C0CE`** (rgb 0,192,206): tokens (`--cyan`, `--cyan-bright`, `--cyan-glow`, `--cyan-tint`, `--glow-cyan`) y todos los literales hex/`rgba` de la interfaz, incluida la página suelta `Access.html`.
+- **Núcleo de tira**: vúmetro (mono en canales, dual en master) y fader en paralelo; el vúmetro recorre -∞…0 dB (0 dB = tope, 75 % del carril del fader) y su escala impresa ya no incluye `+10`.
+- **Niveles de vúmetro lineal→dB** (Maillot: float lineal 0…1, 1.0 = 0 dBFS).
+
+### Verified
+- Navegador a 1296×886 con `?view=mixer&ws=off`: 0 errores de consola; cian computado `rgb(0, 192, 206)`; escala headamp `+60 … -12` con `0` en norm 1/6; teclado/rueda → `cuedesk:osc-out` con `/headamp/000/gain` en saltos de 0.5 dB; AUX → `/auxin/01/preamp/trim`; FX sin modo GAIN.
+
 ## [1.0.3] — 2026-10-08
 
 ### Added

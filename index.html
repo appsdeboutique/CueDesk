@@ -23,7 +23,8 @@
       /ch/NN/mix/pan          linf [-100 … +100, 2]              float
       /ch/NN/config/name      string [12]
       /ch/NN/config/color     enum {OFF,RD,GN,YE,BL,MG,CY,WH}
-      /ch/NN/preamp/trim      linf [-18 … +18, 0.25]  (vista GAIN)
+      /headamp/NNN/gain       linf [-12 … +60, 0.5]   (vista GAIN · canales)
+      /auxin/NN/preamp/trim   linf [-18 … +18, 0.25]  (vista GAIN · aux)
       /auxin/NN/… · /fxrtn/NN/… · /bus/NN/… · /dca/N/{fader,on}
       /main/st/mix/fader · /main/st/mix/on · /main/m/…
       /-stat/solosw/<id>      solo por tira (id = channel-id X32 + 1)
@@ -77,13 +78,6 @@
              alt="CueDesk" decoding="async">
       </a>
 
-      <nav class="tabs" role="tablist" aria-label="Vistas principales">
-        <button class="tab is-active" role="tab" aria-selected="true"  data-view="mixer">Mixer</button>
-        <button class="tab"        role="tab" aria-selected="false" data-view="queue">Queue</button>
-        <button class="tab"        role="tab" aria-selected="false" data-view="routing">Routing</button>
-        <button class="tab"        role="tab" aria-selected="false" data-view="scenes">Scenes</button>
-      </nav>
-
       <div class="topbar__status">
         <span class="chip chip--model">X32</span>
 
@@ -125,6 +119,18 @@
         <button type="button" class="btn-ghost" data-action="sign-out">Sign out</button>
       </div>
     </header>
+
+    <!-- ========================= VIEWBAR (PESTAÑAS) ======================== -->
+    <div class="viewbar">
+      <nav class="viewbar-tabs" role="tablist" aria-label="Vistas principales">
+        <button type="button" class="tab is-active" role="tab" aria-selected="true"  data-view="mixer">Mixer</button>
+        <button type="button" class="tab"           role="tab" aria-selected="false" data-view="setup">Setup</button>
+        <button type="button" class="tab"           role="tab" aria-selected="false" data-view="routing">Routing</button>
+        <button type="button" class="tab"           role="tab" aria-selected="false" data-view="meter">Meter</button>
+        <button type="button" class="tab"           role="tab" aria-selected="false" data-view="scenes">Scenes</button>
+        <button type="button" class="tab"           role="tab" aria-selected="false" data-view="queue" disabled>Queue</button>
+      </nav>
+    </div>
 
     <!-- ====================== BARRA DE CONTROL GLOBAL ====================== -->
     <div class="globalbar">
@@ -209,7 +215,7 @@
           </div>
           <button type="button" class="bank bank--gain" data-action="gain"
                   aria-pressed="false" data-state-value="0"
-                  title="Alterna los faders entre nivel de mezcla y preamp trim (-18…+18 dB)">
+                  title="Alterna los faders entre nivel de mezcla y ganancia de entrada (headamp -12…+60 dB en canales, trim en aux)">
             GAIN
           </button>
         </aside>
@@ -231,20 +237,24 @@
               <span class="tag">LR</span><span class="master__name">Main LR</span>
             </div>
 
-            <div class="meters">
-              <div class="meter-scale" data-side="l"></div>
-              <div class="meter-col" data-role="meter-l"></div>
-              <div class="meter-col" data-role="meter-r"></div>
-              <div class="meter-scale" data-side="r"></div>
-            </div>
+            <!-- CONTENEDOR FLEX PARA UNIR VÚMETROS Y FADER EN PARALELO -->
+            <div class="strip__core">
+              <div class="fader" data-slider="vertical" data-role="fader"
+                   data-osc-path="/main/st/mix/fader" data-osc-address="/main/st/mix/fader"
+                   data-osc-type="f" aria-label="Nivel master">
+                <div class="fader__track">
+                  <div class="fader__travel"><span class="fader__cap"></span></div>
+                </div>
+              </div>
 
-            <div class="fader" data-slider="vertical" data-role="fader"
-                 data-osc-path="/main/st/mix/fader" data-osc-address="/main/st/mix/fader"
-                 data-osc-type="f" aria-label="Nivel master">
-              <div class="fader__track">
-                <div class="fader__travel"><span class="fader__cap"></span></div>
+              <div class="meters">
+                <div class="meter-scale" data-side="l"></div>
+                <div class="meter-col" data-role="meter-l"></div>
+                <div class="meter-col" data-role="meter-r"></div>
+                <div class="meter-scale" data-side="r"></div>
               </div>
             </div>
+            <!-- FIN DEL CONTENEDOR -->
 
             <output class="readout" data-role="readout">-6.0</output>
 
@@ -304,12 +314,45 @@
              y saltar entre escenas.</p>
         </div>
       </section>
+
+      <!-- ------------------------------ SETUP ----------------------------- -->
+      <section class="view view--empty" data-view-panel="setup" hidden>
+        <div class="ph">
+          <span class="ph__icon" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="3.2" stroke="currentColor" stroke-width="1.8"/>
+              <path d="M12 4v2.2M12 17.8V20M4 12h2.2M17.8 12H20M6.3 6.3l1.6 1.6M16.1 16.1l1.6 1.6M17.7 6.3l-1.6 1.6M7.9 16.1l-1.6 1.6"
+                    stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+          </span>
+          <h2>Setup</h2>
+          <p>Preferencias de la superficie FOH: estilo de vúmetros, paso de
+             <code>GAIN</code>, latencia del puente y endpoint OSC. Se expondrá
+             sobre <code>/config/…</code>.</p>
+        </div>
+      </section>
+
+      <!-- ------------------------------ METER ----------------------------- -->
+      <section class="view view--empty" data-view-panel="meter" hidden>
+        <div class="ph">
+          <span class="ph__icon" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+              <path d="M5 19v-5M10 19V9M15 19v-7M20 19V5"
+                    stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+          </span>
+          <h2>Meter</h2>
+          <p>Medidores globales fuera del rack: históricos de nivel, picos por
+             canal y reducción de gate/dyn (<code>/meters/0</code>, 96 floats
+             de Maillot).</p>
+        </div>
+      </section>
     </main>
 
     <!-- ================================ FOOTER ============================ -->
     <footer class="footer">
       <p>2026 StegeNet Systems. All rights reserved.</p>
-      <span class="footer__version" title="CueDesk · versión de la interfaz">v1.0.3</span>
+      <span class="footer__version" title="CueDesk · versión de la interfaz">v1.0.4</span>
     </footer>
   </div>
 

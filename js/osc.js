@@ -59,11 +59,30 @@ CueDesk.dB = (function () {
     return (v >= 0 ? "+" : "-") + Math.abs(v).toFixed(1);
   }
 
+  /** Modo GAIN (headamp 0.5 / trim 0.25): "+26.50" / "+4.25" / "-∞" */
+  function fmtGain(db) {
+    if (!isFinite(db)) return "-∞";
+    let v = db;
+    if (Math.abs(v) < 0.0125) v = 0;
+    return (v >= 0 ? "+" : "-") + Math.abs(v).toFixed(2);
+  }
+
   /** Talkback: "-00", "+04", "-12" */
   function fmtTalk(db) {
     if (!isFinite(db)) return "-∞";
     const v = Math.round(db);
     return (v > 0 ? "+" : "-") + String(Math.abs(v)).padStart(2, "0");
+  }
+
+  /**
+   * Vúmetro lineal X32 → dB.
+   * p. Maillot (Unofficial X32/M32 OSC Protocol): los vúmetros viajan como
+   * float lineal 0.0…1.0 — 1.0 = 0 dBFS (la cabecera interna admite hasta
+   * 8.0 = +18 dBfs).
+   */
+  function fromLinear(v) {
+    if (!(v > 0)) return -Infinity;
+    return (20 * Math.log(v)) / Math.LN10;
   }
 
   /** Pan (-100…100) → "C" / "L24" / "R36" */
@@ -73,7 +92,7 @@ CueDesk.dB = (function () {
     return v < 0 ? "L" + Math.abs(v) : "R" + v;
   }
 
-  return { clamp01, fromFader, toFader, fmt, fmtTalk, fmtPan };
+  return { clamp01, fromFader, toFader, fromLinear, fmt, fmtGain, fmtTalk, fmtPan };
 })();
 
 /* ---------------------------------------------------------------- Bus OSC */

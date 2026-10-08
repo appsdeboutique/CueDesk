@@ -50,12 +50,12 @@ select:focus-visible,
 }
 
 /* --------------------------------------------------------------------------
-   App shell — header fijo arriba, barra global, escenario, footer
+   App shell — header fijo, viewbar de pestañas, barra global, escenario, pie
    -------------------------------------------------------------------------- */
 
 .app {
   display: grid;
-  grid-template-rows: var(--topbar-h) var(--globalbar-h) minmax(0, 1fr) var(--footer-h);
+  grid-template-rows: var(--topbar-h) var(--viewbar-h) var(--globalbar-h) minmax(0, 1fr) var(--footer-h);
   height: 100vh;
   height: 100dvh;
 }
@@ -109,7 +109,7 @@ select:focus-visible,
   border-radius: 14px;
   background: var(--cyan-tint);
   color: var(--cyan-bright);
-  border: 1px solid rgba(0, 188, 212, 0.35);
+  border: 1px solid rgba(0, 192, 206, 0.35);
 }
 
 .ph h2 {
@@ -162,7 +162,7 @@ select:focus-visible,
   letter-spacing: 0.8px;
   color: var(--cyan);
   background: var(--cyan-tint);
-  border: 1px solid rgba(0, 188, 212, 0.35);
+  border: 1px solid rgba(0, 192, 206, 0.35);
   border-radius: 999px;
   padding: 1px 8px;
   line-height: 1.5;
@@ -220,15 +220,13 @@ select:focus-visible,
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 24px;
-  padding: 0 10px;
-  border-radius: 999px;
-  background: #1a1a20;
-  border: 1px solid var(--line);
-  color: var(--text-dim);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.4px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: #1a1a1e;
+  border: 1px solid #2d2d35;
+  color: #e0e0e0;
+  font-size: 13px;
+  font-weight: 500;
   white-space: nowrap;
 }
 
@@ -241,13 +239,12 @@ select:focus-visible,
 
 .chip--loc {
   font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
-  font-size: 10.5px;
   text-transform: lowercase;
   color: var(--text-faint);
 }
 
 .chip--online {
-  color: #7fe0a6;
+  color: #4ade80;
 }
 
 .btn-ghost {

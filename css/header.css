@@ -1,21 +1,22 @@
 /* ==========================================================================
-   CueDesk — Header fijo (topbar) + Barra de control global
+   CueDesk — Header fijo (topbar) + Viewbar de pestañas + Barra de control global
    ========================================================================== */
 
 /* --------------------------------------------------------------------------
    Header superior fijo
    -------------------------------------------------------------------------- */
 
+/* Altura por token (--topbar-h, fila del grid .app); marca a la izquierda,
+   badges de estado a la derecha (las pestañas viven ahora en .viewbar). */
 .topbar {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 16px;
-  padding: 0 16px;
-  background: linear-gradient(180deg, #131317, var(--bg-topbar));
-  border-bottom: 1px solid var(--line);
-  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.45);
-  z-index: 30;
+  padding: 0 24px;
+  background: var(--bg-topbar);
+  border-bottom: 1px solid #222228;
+  z-index: 100;
 }
 
 /* Marca: logotipo oficial (assets/CueDesk_logo.png)
@@ -24,70 +25,21 @@
 .brand {
   display: inline-flex;
   align-items: center;
-  justify-self: start;
   min-width: 0;
-  /* Aire lateral frente a las pestañas (el grid ya separa 16 px) */
-  padding: 0 12px 0 0;
   text-decoration: none;
   color: var(--text);
 }
 
-/* Alto fijo 28 px → ancho 126 px conservando el aspecto (width:auto).
-   Equilibrio: por debajo de las píldoras de pestaña (38 px) y por encima
-   de los badges de estado, con 12 px de aire arriba y abajo en la topbar. */
+/* Alto fijo 32 px → ancho ≈ 144 px conservando el aspecto (width:auto).
+   En la topbar de 56 px queda con 12 px de aire arriba y abajo, a la
+   altura de los badges de estado. */
 .brand__logo {
   display: block;
   width: auto;
-  height: 28px;
+  height: 32px;
+  object-fit: contain;
   padding: 0;
-  filter: drop-shadow(0 0 8px rgba(0, 188, 212, 0.3));
-}
-
-/* Pestañas estilo píldora */
-.tabs {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px;
-  background: #0e0e11;
-  border: 1px solid var(--line-soft);
-  border-radius: 999px;
-}
-
-.tab {
-  position: relative;
-  height: 30px;
-  padding: 0 18px;
-  border-radius: 999px;
-  color: var(--text-dim);
-  font-size: 12.5px;
-  font-weight: 600;
-  letter-spacing: 0.3px;
-  transition: color 0.15s, background 0.15s;
-}
-
-.tab:hover {
-  color: var(--text);
-  background: rgba(255, 255, 255, 0.04);
-}
-
-.tab.is-active {
-  color: var(--cyan-bright);
-  background: var(--cyan-tint);
-  box-shadow: inset 0 0 0 1px rgba(0, 188, 212, 0.35);
-}
-
-/* Indicador inferior brillante bajo la pestaña activa */
-.tab.is-active::after {
-  content: "";
-  position: absolute;
-  left: 24%;
-  right: 24%;
-  bottom: -6px;
-  height: 2px;
-  border-radius: 2px;
-  background: var(--cyan-bright);
-  box-shadow: 0 0 8px var(--cyan-bright), 0 0 18px rgba(0, 229, 255, 0.75);
+  filter: drop-shadow(0 0 8px rgba(0, 192, 206, 0.3));
 }
 
 .topbar__status {
@@ -95,7 +47,88 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 12px;
+}
+
+/* --------------------------------------------------------------------------
+   Viewbar — tira de solapas continua (barra de pestañas de aplicación)
+   -------------------------------------------------------------------------- */
+
+/* Barra horizontal oscura y compacta que encuadra la tira de solapas: éstas
+   se apoyan en el borde inferior para poder fundirse con el panel. Altura
+   fija por --viewbar-h en el grid .app. */
+.viewbar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0 24px;
+  background: #161619;
+  border-bottom: 1px solid #222228;
+}
+
+/* Tira unida: solapas pegadas (gap 0) y sin pista de píldoras — el JS sigue
+   enganchado a .tab / .is-active */
+.viewbar-tabs {
+  display: flex;
+  align-items: flex-end;
+  gap: 0;
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 0;
+}
+
+/* Solapa: forma de pestaña de escritorio — radio SOLO arriba, fondo propio,
+   filete técnico de 1 px con la solapa vecina y CERO sombra de botón. */
+.viewbar .tab {
+  position: relative;
+  height: 36px;
+  padding: 0 26px;
+  background: #1a1a20;
+  color: var(--text-dim);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  border-radius: 4px 4px 0 0;
+  white-space: nowrap;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.viewbar .tab + .tab {
+  border-left: 1px solid #101014;
+}
+
+.viewbar .tab:hover:not(.is-active):not(:disabled) {
+  color: #fff;
+  background: #22222b;
+}
+
+/* Activa: se funde con el color del panel (--bg-app, la fila inferior; el
+   margen negativo tapa el filete de la barra) y luce la pastilla cian
+   superior #00c0ce manteniendo la forma de solapa integrada. */
+.viewbar .tab.is-active {
+  color: var(--text);
+  background: var(--bg-app);
+  margin-bottom: -1px;
+  border-bottom: 1px solid var(--bg-app);
+  z-index: 1;
+}
+
+.viewbar .tab.is-active::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: #00c0ce;
+}
+
+/* Solapa deshabilitada (Queue): atenuada y sin interacción */
+.viewbar .tab:disabled {
+  color: #56565f;
+  background: #17171b;
+  cursor: default;
 }
 
 /* --------------------------------------------------------------------------
@@ -113,9 +146,9 @@ button.chip:hover {
 }
 
 .chip--online.is-online {
-  color: #7fe0a6;
-  border-color: rgba(38, 208, 106, 0.45);
-  background: rgba(38, 208, 106, 0.08);
+  color: #4ade80;
+  border-color: rgba(74, 222, 128, 0.3);
+  background: rgba(74, 222, 128, 0.1);
 }
 
 .chip--online.is-retry {
@@ -179,9 +212,9 @@ button.chip:hover {
 }
 
 .conn-panel__state.is-on {
-  color: #7fe0a6;
-  border-color: rgba(38, 208, 106, 0.45);
-  background: rgba(38, 208, 106, 0.1);
+  color: #4ade80;
+  border-color: rgba(74, 222, 128, 0.3);
+  background: rgba(74, 222, 128, 0.1);
 }
 
 .conn-panel__state.is-retry {
@@ -219,8 +252,8 @@ button.chip:hover {
 
 .conn-panel__input:focus {
   outline: none;
-  border-color: rgba(0, 188, 212, 0.55);
-  box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.7), 0 0 0 2px rgba(0, 188, 212, 0.18);
+  border-color: rgba(0, 192, 206, 0.55);
+  box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.7), 0 0 0 2px rgba(0, 192, 206, 0.18);
 }
 
 .conn-panel__hint {
@@ -291,18 +324,25 @@ button.chip:hover {
    Barra de control global (secundaria)
    -------------------------------------------------------------------------- */
 
-/* La barra es un flex en flujo normal: NADA está posicionado en absoluto,
-   así que ningún grupo puede solapar a su vecino. Si no cabe hueco, los
-   márgenes automáticos colapsan a 0 y la barra hace scroll horizontal. */
+/* Tarjeta flotante con borde cian y glow (bloque view-status). Sigue siendo
+   flex en flujo normal: nada está posicionado, así que ningún grupo solapa a
+   su vecino; si no cabe hueco, los márgenes auto colapsan a 0 y la barra hace
+   scroll horizontal. Altura total con márgenes: --globalbar-h (.app). */
 .globalbar {
   position: relative;
   display: flex;
   flex-wrap: nowrap;
   align-items: center;
+  justify-content: space-between;
   column-gap: 14px; /* separación segura e independiente entre grupos */
-  padding: 0 14px;
-  background: linear-gradient(180deg, #17171b, #131317);
-  border-bottom: 1px solid var(--line);
+  width: calc(100% - 32px);
+  margin: 12px 16px;
+  padding: 12px 20px;
+  background-color: #121215;
+  border: 1px solid #00c0ce;
+  border-radius: 8px;
+  box-shadow: 0 0 12px rgba(0, 192, 206, 0.25), inset 0 0 6px rgba(0, 192, 206, 0.05);
+  color: #e0e0e0;
   z-index: 20;
   overflow-x: auto;
   overflow-y: hidden;
@@ -325,23 +365,25 @@ button.chip:hover {
   white-space: nowrap;
 }
 
+/* Bloques internos de la barra (Preview · Talkback · Automix · Clear Solo) */
 .gb-left {
-  column-gap: 10px;
+  column-gap: 16px;
 }
 
 .gb-talk {
-  column-gap: 8px;
+  column-gap: 16px;
 }
 
-/* "AUTOMIX" vive aquí: márgenes automáticos = centrado real sin absolutos */
+/* "AUTOMIX": los márgenes auto absorben el espacio libre antes que
+   justify-content, dejando el mismo aire a ambos lados y Clear Solo al final */
 .gb-center {
-  column-gap: 6px;
+  column-gap: 10px;
   margin-inline: auto;
   padding-inline: 6px;
 }
 
 .gb-right {
-  column-gap: 8px;
+  column-gap: 12px;
 }
 
 .gb-label {
@@ -353,34 +395,38 @@ button.chip:hover {
   color: var(--text-faint);
 }
 
-/* LOCAL PREVIEW */
-.pillbtn {
+/* Base común de todos los controles de la barra (bloque view-status) */
+.globalbar button {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  height: 26px;
-  padding: 0 12px;
-  border-radius: 999px;
-  background: #1a1a20;
-  border: 1px solid var(--line);
-  color: var(--text-dim);
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 1px;
+  background-color: #1a1a1f;
+  border: 1px solid #2d2d38;
+  color: #d1d5db;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
   white-space: nowrap;
-  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  transition: all 0.2s ease;
 }
 
-.pillbtn:hover {
-  color: var(--text);
-  border-color: var(--line-strong);
+.globalbar button:hover {
+  border-color: #00c0ce;
+  color: #ffffff;
 }
 
-.pillbtn.is-active {
-  color: var(--amber);
-  background: var(--amber-tint);
-  border-color: rgba(255, 179, 0, 0.5);
-  box-shadow: 0 0 12px rgba(255, 179, 0, 0.18);
+/* Activo/destacado (Talkback, Automix, Local preview…) */
+.globalbar button.is-active {
+  background-color: #00c0ce;
+  color: #0d0d0f;
+  border-color: #00c0ce;
+  box-shadow: 0 0 8px rgba(0, 192, 206, 0.4);
+}
+
+/* LOCAL PREVIEW: sólo el hueco del LED; el resto lo aporta la base */
+.pillbtn {
+  gap: 7px;
 }
 
 /* Indicadores de sync A / B / L / C */
@@ -416,9 +462,9 @@ button.chip:hover {
 
 .sync.is-on {
   color: var(--cyan-bright);
-  border-color: rgba(0, 188, 212, 0.4);
-  background: rgba(0, 188, 212, 0.08);
-  text-shadow: 0 0 8px rgba(0, 229, 255, 0.6);
+  border-color: rgba(0, 192, 206, 0.4);
+  background: rgba(0, 192, 206, 0.08);
+  text-shadow: 0 0 8px rgba(0, 192, 206, 0.6);
 }
 
 /* Talkback */
@@ -432,35 +478,8 @@ button.chip:hover {
   box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.6);
 }
 
-.segmented button {
-  height: 22px;
-  min-width: 34px;
-  padding: 0 9px;
-  border-radius: 4px;
-  color: var(--text-dim);
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.6px;
-  transition: color 0.12s, background 0.12s, box-shadow 0.12s;
-}
-
-.segmented button:hover {
-  color: var(--text);
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.segmented button.is-active {
-  color: #1a1200;
-  background: var(--amber);
-  box-shadow: 0 0 10px rgba(255, 179, 0, 0.55);
-}
-
-/* Estado "OFF" seleccionado: cyan (sin talkback) */
-.segmented button[data-dest="OFF"].is-active {
-  color: var(--text-inv);
-  background: var(--cyan-bright);
-  box-shadow: 0 0 10px var(--cyan-glow);
-}
+/* A / B / OFF: base común del bloque view-status; el riel .segmented
+   se mantiene como pista inset */
 
 /* Talkback en vivo (destino A o B) */
 .segmented.is-live {
@@ -491,66 +510,20 @@ button.chip:hover {
   border-color: rgba(255, 179, 0, 0.45);
 }
 
-/* Botones X / AUTOMIX / Y */
+/* X / AUTOMIX / Y: base común del bloque; sólo estabilidad de ancho */
 .modebtn {
-  height: 26px;
   min-width: 34px;
-  padding: 0 12px;
-  border-radius: var(--radius-sm);
-  background: linear-gradient(180deg, #26262e, #1b1b21);
-  border: 1px solid var(--line-strong);
-  color: var(--text-dim);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.8px;
-  white-space: nowrap;
-  box-shadow: var(--shadow-btn);
-  transition: color 0.12s, background 0.12s, box-shadow 0.12s, border-color 0.12s;
-}
-
-.modebtn:hover {
-  color: var(--text);
 }
 
 .modebtn--wide {
   min-width: 96px;
-  font-size: 10.5px;
-  letter-spacing: 1.4px;
-  white-space: nowrap;
-  overflow-wrap: normal;
-  word-break: keep-all;
 }
 
-.modebtn.is-active {
-  color: #04212a;
-  background: linear-gradient(180deg, var(--cyan-bright), var(--cyan));
-  border-color: var(--cyan-bright);
-  box-shadow: 0 0 12px var(--cyan-glow), 0 2px 6px rgba(0, 0, 0, 0.5);
-  text-shadow: none;
-}
-
-/* CLEAR SOLO (derecha) — el hueco lo absorben los márgenes de .gb-center */
-.btn-clear {
-  height: 28px;
-  padding: 0 16px;
-  border-radius: var(--radius-sm);
-  background: linear-gradient(180deg, #1d1d23, #141418);
-  border: 1px solid var(--line-strong);
-  color: var(--text-dim);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 1.3px;
-  white-space: nowrap;
-  box-shadow: var(--shadow-btn);
-  transition: color 0.15s, border-color 0.15s, box-shadow 0.15s;
-}
-
-.btn-clear:hover {
-  color: var(--text);
-  border-color: #454552;
-}
-
-.btn-clear.is-warning {
+/* CLEAR SOLO (derecha) — el hueco lo absorben los márgenes de .gb-center.
+   Base común del bloque; el aviso (hay solos activos) sigue en ámbar y ni el
+   hover genérico lo toca (mayor especificidad + :hover). */
+.btn-clear.is-warning,
+.btn-clear.is-warning:hover {
   color: #1c1400;
   background: linear-gradient(180deg, #ffca4a, var(--amber));
   border-color: var(--amber);
