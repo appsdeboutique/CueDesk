@@ -18,31 +18,29 @@
   z-index: 30;
 }
 
-/* Marca: icono de onda (cyan) + wordmark */
+/* Marca: logotipo oficial (assets/CueDesk_logo.png)
+   PNG con fondo transparente y tinta cian, lienzo 469×104 recortado al
+   contenido (relleno 99% × 93%) — no necesita fondo ni recorte. */
 .brand {
   display: inline-flex;
   align-items: center;
-  gap: 9px;
+  justify-self: start;
+  min-width: 0;
+  /* Aire lateral frente a las pestañas (el grid ya separa 16 px) */
+  padding: 0 12px 0 0;
   text-decoration: none;
   color: var(--text);
 }
 
-.brand__icon {
-  width: 26px;
-  height: 26px;
-  color: var(--cyan-bright);
-  filter: drop-shadow(0 0 6px rgba(0, 229, 255, 0.55));
-}
-
-.brand__word {
-  font-size: 16.5px;
-  font-weight: 700;
-  letter-spacing: 0.4px;
-}
-
-.brand__word b {
-  color: var(--cyan-bright);
-  font-weight: 700;
+/* Alto fijo 28 px → ancho 126 px conservando el aspecto (width:auto).
+   Equilibrio: por debajo de las píldoras de pestaña (38 px) y por encima
+   de los badges de estado, con 12 px de aire arriba y abajo en la topbar. */
+.brand__logo {
+  display: block;
+  width: auto;
+  height: 28px;
+  padding: 0;
+  filter: drop-shadow(0 0 8px rgba(0, 188, 212, 0.3));
 }
 
 /* Pestañas estilo píldora */
@@ -93,6 +91,7 @@
 }
 
 .topbar__status {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -100,35 +99,249 @@
 }
 
 /* --------------------------------------------------------------------------
+   Indicador de enlace WebSocket (chip del header) + panel de endpoint
+   -------------------------------------------------------------------------- */
+
+button.chip {
+  font-family: inherit;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s, box-shadow 0.15s;
+}
+
+button.chip:hover {
+  border-color: var(--line-strong);
+}
+
+.chip--online.is-online {
+  color: #7fe0a6;
+  border-color: rgba(38, 208, 106, 0.45);
+  background: rgba(38, 208, 106, 0.08);
+}
+
+.chip--online.is-retry {
+  color: var(--amber);
+  border-color: rgba(255, 179, 0, 0.45);
+  background: var(--amber-tint);
+}
+
+.chip--online.is-retry .led {
+  animation: led-blink 1.05s ease-in-out infinite;
+}
+
+.chip--online.is-offline {
+  color: #ff8a80;
+  border-color: rgba(255, 59, 48, 0.45);
+  background: rgba(255, 59, 48, 0.09);
+}
+
+/* Panel de configuración del transporte */
+.conn-panel {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 302px;
+  display: grid;
+  gap: 9px;
+  padding: 12px;
+  background: #17171c;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.62);
+  z-index: 60;
+}
+
+.conn-panel[hidden] {
+  display: none;
+}
+
+.conn-panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.conn-panel__title {
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.conn-panel__state {
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.7px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+}
+
+.conn-panel__state.is-on {
+  color: #7fe0a6;
+  border-color: rgba(38, 208, 106, 0.45);
+  background: rgba(38, 208, 106, 0.1);
+}
+
+.conn-panel__state.is-retry {
+  color: var(--amber);
+  border-color: rgba(255, 179, 0, 0.45);
+  background: var(--amber-tint);
+}
+
+.conn-panel__state.is-off {
+  color: #ff8a80;
+  border-color: rgba(255, 59, 48, 0.45);
+  background: rgba(255, 59, 48, 0.1);
+}
+
+.conn-panel__label {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.conn-panel__input {
+  height: 28px;
+  padding: 0 9px;
+  border-radius: 6px;
+  background: var(--bg-inset);
+  border: 1px solid var(--line-soft);
+  color: var(--text);
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: 12px;
+  letter-spacing: 0.3px;
+  box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.7);
+}
+
+.conn-panel__input:focus {
+  outline: none;
+  border-color: rgba(0, 188, 212, 0.55);
+  box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.7), 0 0 0 2px rgba(0, 188, 212, 0.18);
+}
+
+.conn-panel__hint {
+  margin: 0;
+  font-size: 10px;
+  line-height: 1.55;
+  color: var(--text-faint);
+}
+
+.conn-panel__hint code {
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: 9.5px;
+  color: var(--cyan);
+  background: var(--cyan-tint);
+  padding: 0 3px;
+  border-radius: 3px;
+}
+
+.conn-panel__actions {
+  display: flex;
+  gap: 6px;
+}
+
+.connbtn {
+  flex: 1;
+  height: 26px;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  background: #1d1d23;
+  border: 1px solid var(--line-strong);
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: color 0.12s, border-color 0.12s, background 0.12s, box-shadow 0.12s;
+}
+
+.connbtn:hover {
+  color: var(--text);
+  border-color: #4a4a58;
+}
+
+.connbtn--primary {
+  color: #04212a;
+  background: linear-gradient(180deg, var(--cyan-bright), var(--cyan));
+  border-color: var(--cyan-bright);
+  box-shadow: 0 0 10px var(--cyan-glow);
+}
+
+.connbtn--primary:hover {
+  color: #04212a;
+  filter: brightness(1.07);
+}
+
+.connbtn--ghost {
+  background: transparent;
+}
+
+.conn-panel__stats {
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: 9.5px;
+  letter-spacing: 0.4px;
+  color: var(--text-faint);
+}
+
+/* --------------------------------------------------------------------------
    Barra de control global (secundaria)
    -------------------------------------------------------------------------- */
 
+/* La barra es un flex en flujo normal: NADA está posicionado en absoluto,
+   así que ningún grupo puede solapar a su vecino. Si no cabe hueco, los
+   márgenes automáticos colapsan a 0 y la barra hace scroll horizontal. */
 .globalbar {
   position: relative;
   display: flex;
+  flex-wrap: nowrap;
   align-items: center;
-  gap: 18px;
-  padding: 0 12px;
+  column-gap: 14px; /* separación segura e independiente entre grupos */
+  padding: 0 14px;
   background: linear-gradient(180deg, #17171b, #131317);
   border-bottom: 1px solid var(--line);
   z-index: 20;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
 }
 
+.globalbar::-webkit-scrollbar {
+  height: 0;
+}
+
+/* Cada grupo es un bloque rígido con su propio gap interno */
 .gb-left,
 .gb-talk,
+.gb-center,
 .gb-right {
   display: flex;
   align-items: center;
-  gap: 10px;
+  flex: 0 0 auto;
+  min-width: 0;
+  white-space: nowrap;
 }
 
+.gb-left {
+  column-gap: 10px;
+}
+
+.gb-talk {
+  column-gap: 8px;
+}
+
+/* "AUTOMIX" vive aquí: márgenes automáticos = centrado real sin absolutos */
 .gb-center {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  column-gap: 6px;
+  margin-inline: auto;
+  padding-inline: 6px;
+}
+
+.gb-right {
+  column-gap: 8px;
 }
 
 .gb-label {
@@ -136,6 +349,7 @@
   font-weight: 700;
   letter-spacing: 1.4px;
   text-transform: uppercase;
+  white-space: nowrap;
   color: var(--text-faint);
 }
 
@@ -153,6 +367,7 @@
   font-size: 10.5px;
   font-weight: 700;
   letter-spacing: 1px;
+  white-space: nowrap;
   transition: color 0.15s, border-color 0.15s, background 0.15s;
 }
 
@@ -190,6 +405,7 @@
   font-size: 10.5px;
   font-weight: 600;
   letter-spacing: 0.5px;
+  white-space: nowrap;
   box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.6);
 }
 
@@ -287,6 +503,7 @@
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.8px;
+  white-space: nowrap;
   box-shadow: var(--shadow-btn);
   transition: color 0.12s, background 0.12s, box-shadow 0.12s, border-color 0.12s;
 }
@@ -299,6 +516,9 @@
   min-width: 96px;
   font-size: 10.5px;
   letter-spacing: 1.4px;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: keep-all;
 }
 
 .modebtn.is-active {
@@ -309,11 +529,7 @@
   text-shadow: none;
 }
 
-/* CLEAR SOLO (derecha) */
-.gb-right {
-  margin-left: auto;
-}
-
+/* CLEAR SOLO (derecha) — el hueco lo absorben los márgenes de .gb-center */
 .btn-clear {
   height: 28px;
   padding: 0 16px;
@@ -324,6 +540,7 @@
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 1.3px;
+  white-space: nowrap;
   box-shadow: var(--shadow-btn);
   transition: color 0.15s, border-color 0.15s, box-shadow 0.15s;
 }
@@ -338,4 +555,32 @@
   background: linear-gradient(180deg, #ffca4a, var(--amber));
   border-color: var(--amber);
   box-shadow: 0 0 14px rgba(255, 179, 0, 0.5), var(--shadow-btn);
+}
+
+/* --------------------------------------------------------------------------
+   Responsive de la barra global: se libera ancho sin solapar nada
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 1280px) {
+  .globalbar {
+    column-gap: 12px;
+    padding: 0 12px;
+  }
+}
+
+@media (max-width: 1180px) {
+  .gb-talk .gb-label {
+    display: none;
+  }
+}
+
+@media (max-width: 1060px) {
+  .globalbar {
+    column-gap: 10px;
+    padding: 0 10px;
+  }
+
+  .gb-center {
+    padding-inline: 2px;
+  }
 }

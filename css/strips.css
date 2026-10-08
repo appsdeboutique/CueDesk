@@ -29,6 +29,11 @@
   gap: 8px;
   flex: 1 1 0;
   min-width: 98px;
+  /* Alturas de las dos primeras filas, compartidas por TODAS las tiras:
+     garantizan que vúmetros, recorrido del fader y botones M/S arranquen
+     a la misma Y en los 8 canales y en el master. */
+  --head-h: 44px;
+  --pan-h: 36px; /* sólo recorrido + eje C (sin cabecera de texto) */
   background: var(--bg-card);
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -39,6 +44,7 @@
 /* --- Display superior: barra de color + número + etiqueta --------------- */
 
 .strip__display {
+  min-height: var(--head-h);
   background: linear-gradient(180deg, #101014, #15151a);
   border-bottom: 1px solid var(--line-soft);
 }
@@ -113,37 +119,34 @@
 }
 
 /* --------------------------------------------------------------------------
-   Control de panorama (slider horizontal compacto con indicador "C")
+   Control de panorama (slider horizontal compacto + eje "C" centrado debajo)
    -------------------------------------------------------------------------- */
 
 .pan {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  height: 32px;
+  display: grid;
+  grid-template-rows: 18px 8px; /* recorrido / eje C */
+  row-gap: 2px;
+  align-content: center;
+  height: var(--pan-h);
   flex: none;
-  padding: 0 9px;
+  padding: 4px 9px;
 }
 
+/* Hueco de las tiras sin pan (p. ej. DCA): misma altura exacta que .pan */
 .strip__gap {
-  height: 32px;
+  height: var(--pan-h);
   flex: none;
 }
 
-.pan__label {
-  font-size: 8.5px;
+/* Eje central: siempre exactamente debajo del recorrido, sin flotar */
+.pan__center {
+  justify-self: center;
+  font-size: 8px;
+  line-height: 1;
   font-weight: 800;
-  letter-spacing: 1.1px;
+  letter-spacing: 0.3px;
+  user-select: none;
   color: var(--text-faint);
-}
-
-.pan__readout {
-  min-width: 26px;
-  text-align: right;
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--text-dim);
-  font-variant-numeric: tabular-nums;
 }
 
 .hslider {
@@ -155,6 +158,10 @@
   height: 20px;
   cursor: grab;
   touch-action: none;
+}
+
+.hslider--pan {
+  height: 18px;
 }
 
 .hslider.is-dragging {
@@ -182,23 +189,7 @@
   background: #40404c;
 }
 
-/* Indicador central "C" */
-.hslider__center {
-  position: absolute;
-  left: 50%;
-  top: 0;
-  bottom: 0;
-  width: 13px;
-  display: grid;
-  place-items: center;
-  transform: translateX(-50%);
-  font-size: 8px;
-  font-weight: 800;
-  color: var(--text-faint);
-  pointer-events: none;
-  z-index: 1;
-}
-
+/* Pulgar del slider horizontal */
 .hslider__thumb {
   position: absolute;
   top: 50%;
@@ -532,6 +523,8 @@
 }
 
 .strip--master .strip__display {
+  display: flex;
+  align-items: center;
   padding: 7px 8px;
 }
 
@@ -560,7 +553,9 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  height: 28px;
+  /* Misma altura que el bloque de pan de las tiras: alinea vúmetros,
+     fader y botones del master con los de los 8 canales. */
+  height: var(--pan-h);
   padding: 0 9px;
   flex: none;
   color: var(--text-dim);
@@ -599,10 +594,6 @@
    -------------------------------------------------------------------------- */
 
 @media (max-width: 1440px) {
-  .pan__label {
-    display: none;
-  }
-
   .meters {
     padding: 6px 6px 2px;
     gap: 2px;

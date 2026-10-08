@@ -44,24 +44,161 @@ CueDesk.app = { view: "mixer" };
     return v === 1 || v === "1" || v === "ON" || v === "on" || v === true;
   }
 
+  /* ----------------------------------------------------- ENLACE WEBSOCKET */
+
+  /**
+   * Pinta el estado del transporte (capa de websocketClient.js) en el LED del
+   * header y gestiona el panel de endpoint. Esta capa NO hace red: sólo
+   * escucha el evento "cuedesk:link" y llama a CueDesk.WS.
+   */
+  function initLink() {
+    const WS = CueDesk.WS;
+    const chip = document.querySelector('[data-action="conn"]');
+    if (!chip || !WS) return;
+
+    const led = chip.querySelector(".led");
+    const label = chip.querySelector(".conn__label");
+    const panel = document.getElementById("conn-panel");
+    const input = panel && panel.querySelector('[data-role="conn-url"]');
+    const stateOut = panel && panel.querySelector('[data-role="conn-state"]');
+    const statsOut = panel && panel.querySelector('[data-role="conn-stats"]');
+
+    function render(d) {
+      d = d || WS.status();
+      const on = d.state === "online";
+      const retrying = d.state === "connecting" || d.state === "reconnecting";
+
+      led.className = "led " + (on ? "led--green" : retrying ? "led--amber" : "led--red");
+      label.textContent = on ? "Online" : "Offline";
+      chip.classList.toggle("is-online", on);
+      chip.classList.toggle("is-retry", retrying);
+      chip.title =
+        (on ? "Enlace activo con " : "Sin enlace · ") +
+        (d.url || "sin endpoint") +
+        (d.attempt ? " · reintento #" + d.attempt : "") +
+        (d.queued ? " · " + d.queued + " msg en cola" : "");
+      document.body.classList.toggle("is-online", on);
+
+      if (stateOut) {
+        stateOut.textContent = on ? "ONLINE" : retrying ? "RECONECTANDO…" : "OFFLINE";
+        stateOut.className =
+          "conn-panel__state " + (on ? "is-on" : retrying ? "is-retry" : "is-off");
+      }
+      if (statsOut && d.stats) {
+        statsOut.textContent =
+          "enviados " + d.stats.sent +
+          " · recibidos " + d.stats.received +
+          " · cola " + (d.queued || 0) +
+          (d.attempt ? " · intento " + d.attempt : "");
+      }
+    }
+
+    function openPanel() {
+      if (!panel) return;
+      panel.hidden = false;
+      chip.setAttribute("aria-expanded", "true");
+      if (input) {
+        input.value = WS.url || "";
+        input.focus();
+        input.select();
+      }
+      render(WS.status());
+    }
+
+    function closePanel() {
+      if (!panel) return;
+      panel.hidden = true;
+      chip.setAttribute("aria-expanded", "false");
+    }
+
+    chip.addEventListener("click", function () {
+      if (!panel) return;
+      if (panel.hidden) openPanel();
+      else closePanel();
+    });
+
+    document.addEventListener("cuedesk:link", function (e) {
+      render(e.detail);
+    });
+
+    if (panel) {
+      const btnConnect = panel.querySelector('[data-action="conn-connect"]');
+      const btnDisconnect = panel.querySelector('[data-action="conn-disconnect"]');
+      const btnClose = panel.querySelector('[data-action="conn-close"]');
+
+      btnConnect.addEventListener("click", function () {
+        const url = input.value.trim();
+        if (url) WS.configure(url);
+        WS.connect();
+        toast(WS.url ? "Conectando con " + WS.url : "Enlace desactivado");
+      });
+
+      btnDisconnect.addEventListener("click", function () {
+        WS.disconnect();
+        toast("Enlace detenido");
+        render(WS.status());
+      });
+
+      btnClose.addEventListener("click", function () {
+        closePanel();
+        chip.focus();
+      });
+
+      input.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          btnConnect.click();
+        } else if (e.key === "Escape") {
+          e.preventDefault();
+          closePanel();
+          chip.focus();
+        }
+      });
+
+      // Clic fuera del panel → cerrar
+      document.addEventListener("pointerdown", function (e) {
+        if (panel.hidden) return;
+        if (panel.contains(e.target) || chip.contains(e.target)) return;
+        closePanel();
+      });
+    }
+
+    render(WS.status());
+  }
+
   /* --------------------------------------------------------------- tabs */
 
   function initTabs() {
     const tabs = Array.prototype.slice.call(document.querySelectorAll(".tab"));
+
+    function select(tab) {
+      tabs.forEach(function (t) {
+        const active = t === tab;
+        t.classList.toggle("is-active", active);
+        t.setAttribute("aria-selected", active ? "true" : "false");
+      });
+      const view = tab.dataset.view;
+      CueDesk.app.view = view;
+      document.querySelectorAll("[data-view-panel]").forEach(function (panel) {
+        panel.hidden = panel.dataset.viewPanel !== view;
+      });
+    }
+
     tabs.forEach(function (tab) {
       tab.addEventListener("click", function () {
-        tabs.forEach(function (t) {
-          const active = t === tab;
-          t.classList.toggle("is-active", active);
-          t.setAttribute("aria-selected", active ? "true" : "false");
-        });
-        const view = tab.dataset.view;
-        CueDesk.app.view = view;
-        document.querySelectorAll("[data-view-panel]").forEach(function (panel) {
-          panel.hidden = panel.dataset.viewPanel !== view;
-        });
+        select(tab);
       });
     });
+
+    // Vista inicial por URL: ?view=mixer | queue | routing | scenes
+    // (usada por el lanzador local CueDesk_Mixer.bat)
+    const forced = new URLSearchParams(window.location.search).get("view");
+    if (forced) {
+      const target = tabs.find(function (t) {
+        return t.dataset.view === forced;
+      });
+      if (target) select(target);
+    }
   }
 
   /* ----------------------------------------------------- LOCAL PREVIEW */
@@ -271,6 +408,7 @@ CueDesk.app = { view: "mixer" };
 
   function init() {
     Mixer.init(); // rack + master + vúmetros
+    initLink();   // LED de enlace + panel WebSocket
     initTabs();
     initLocalPreview();
     initTalkback();

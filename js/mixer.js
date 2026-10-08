@@ -66,6 +66,10 @@ CueDesk.Mixer = (function () {
     R: { level: Meters.MASTER_VOICE.base },
   };
 
+  /** Niveles reales recibidos del backend (/meters/1); TTL para caducar. */
+  const EXT_TTL = 1200;
+  let masterExt = null; // { L, R, at }
+
   /* ------------------------------------------------------------- helpers */
 
   function p2(n) {
@@ -78,6 +82,17 @@ CueDesk.Mixer = (function () {
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;");
+  }
+
+  function perfNow() {
+    return typeof performance !== "undefined" && performance.now
+      ? performance.now()
+      : Date.now();
+  }
+
+  function num(v) {
+    const n = typeof v === "number" ? v : parseFloat(v);
+    return isFinite(n) ? n : null;
   }
 
   /** Valor "ON" de la consola: 1 / "1" / "ON" / true */
@@ -223,6 +238,37 @@ CueDesk.Mixer = (function () {
         })
       );
     }
+
+    // Etiqueta y color: el backend también puede cambiarlos
+    if (m.paths.name) {
+      lifeUnsubs.push(
+        OSC.on(m.paths.name, function (v) {
+          const name = String(v === null || v === undefined ? "" : v).trim().slice(0, 12);
+          if (!name || name === m.name) return;
+          m.name = name;
+          const el = liveStrip(m);
+          if (!el) return;
+          const input = el.querySelector('[data-role="name"]');
+          if (input && document.activeElement !== input) input.value = name;
+        })
+      );
+    }
+    if (m.paths.color) {
+      lifeUnsubs.push(
+        OSC.on(m.paths.color, function (v) {
+          // X32 config/color: {OFF:0, RD:1, GN:2, YE:3, …}
+          const map = { 1: "red", 2: "green", 3: "yellow" };
+          const next = map[parseInt(v, 10)];
+          if (!next || next === m.color) return;
+          m.color = next;
+          const el = liveStrip(m);
+          if (el) {
+            const btn = el.querySelector('[data-role="color"]');
+            if (btn) btn.className = "strip__color is-" + next;
+          }
+        })
+      );
+    }
   }
 
   /** Sincroniza el modelo cuando la UI envía (loopback / eco de consola). */
@@ -276,16 +322,14 @@ CueDesk.Mixer = (function () {
   function panHTML(m) {
     return (
       '<div class="pan">' +
-        '<span class="pan__label">PAN</span>' +
         '<div class="hslider hslider--pan" data-slider="horizontal" data-role="pan" ' +
           'data-osc-path="' + m.paths.pan + '" data-osc-address="' + m.paths.pan + '" data-osc-type="f" ' +
           'aria-label="Panorama ' + escapeHtml(m.name) + '">' +
-          '<span class="hslider__track">' +
-            '<span class="hslider__center">C</span>' +
-            '<span class="hslider__thumb"></span>' +
-          "</span>" +
+          '<span class="hslider__track"><span class="hslider__thumb"></span></span>' +
         "</div>" +
-        '<output class="pan__readout" data-role="pan-readout">C</output>' +
+        // Eje central, siempre centrado debajo del recorrido (el valor vive
+        // en aria-valuetext, no en texto estático)
+        '<span class="pan__center" aria-hidden="true">C</span>' +
       "</div>"
     );
   }
@@ -367,7 +411,6 @@ CueDesk.Mixer = (function () {
         type: "f",
         value: m.pan,
         display: Controls.displayPan,
-        readout: section.querySelector('[data-role="pan-readout"]'),
         reset: 0.5,
         snap: 0.01, // X32: paso de 2 en [-100 … +100]
         toOsc: function (v) { return Math.round(v * 200 - 100); },
@@ -434,10 +477,59 @@ CueDesk.Mixer = (function () {
     Meters.register(colR, function () { return meterLevel(m, "R"); });
   }
 
+  /**
+   * Nivel de una columna de vúmetro.
+   * Prioridad: dato real del backend (/meters/1) si está fresco → simulación.
+   */
   function meterLevel(m, side) {
     if (m.muted) return -95;
+    const ext = m.ext;
+    if (ext && ext[side] !== null && isFinite(ext[side]) && perfNow() - ext.at < EXT_TTL) {
+      return ext[side];
+    }
     const f = dB.fromFader(m.faderNorm);
     return m.sim[side].level + (isFinite(f) ? f : -95);
+  }
+
+  /**
+   * Paquete entrante de vúmetros (llega por el bus, sin saber de red):
+   *   [[L,R], [L,R], …]  → 8 tiras + master en el índice 8
+   *   [L, R, L, R, …]    → formato plano L/R por tira
+   *   { levels: [...] }  → envoltorio con nombre
+   */
+  function applyMeterPacket(v) {
+    let list = v;
+    if (v && !Array.isArray(v) && Array.isArray(v.levels)) list = v.levels;
+    if (!Array.isArray(list) || !list.length) return;
+
+    const at = perfNow();
+    const pair = function (p) {
+      return {
+        L: num(p[0]),
+        R: num(p[1] === undefined ? p[0] : p[1]),
+        at: at,
+      };
+    };
+
+    if (Array.isArray(list[0])) {
+      activeStrips.forEach(function (m, i) {
+        if (Array.isArray(list[i])) m.ext = pair(list[i]);
+      });
+      if (list.length > activeStrips.length && Array.isArray(list[activeStrips.length])) {
+        masterExt = pair(list[activeStrips.length]);
+      }
+    } else {
+      activeStrips.forEach(function (m, i) {
+        m.ext = { L: num(list[i * 2]), R: num(list[i * 2 + 1]), at: at };
+      });
+      if (list.length > activeStrips.length * 2) {
+        masterExt = {
+          L: num(list[activeStrips.length * 2]),
+          R: num(list[activeStrips.length * 2 + 1]),
+          at: at,
+        };
+      }
+    }
   }
 
   /* --------------------------------------------------------------- rack */
@@ -552,6 +644,14 @@ CueDesk.Mixer = (function () {
   function masterLevel(side) {
     const st = masterState[masterTarget];
     if (st.muted) return -95;
+    if (
+      masterExt &&
+      masterExt[side] !== null &&
+      isFinite(masterExt[side]) &&
+      perfNow() - masterExt.at < EXT_TTL
+    ) {
+      return masterExt[side];
+    }
     const f = dB.fromFader(st.faderNorm);
     return masterSim[side].level + (isFinite(f) ? f : -95);
   }
@@ -611,6 +711,12 @@ CueDesk.Mixer = (function () {
   function init() {
     rack = document.getElementById("channel-rack");
     masterEl = document.querySelector(".strip--master");
+
+    // Vúmetros reales: el transporte (websocketClient.js) los mete en el bus
+    // y aquí sólo se traducen a DOM. Caducan a los EXT_TTL ms y se vuelve
+    // a la simulación si el backend deja de enviar.
+    lifeUnsubs.push(OSC.on("/meters/1", applyMeterPacket));
+
     rebuild();
     wireMaster();
     Meters.start();

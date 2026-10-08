@@ -332,14 +332,8 @@ select:focus-visible,
 }
 
 @media (max-width: 1060px) {
-  .globalbar {
-    overflow-x: auto;
-    overflow-y: hidden;
-  }
-
-  .gb-center {
-    position: static !important;
-    transform: none !important;
-    margin-left: auto;
+  /* La barra global ya gestiona su propio scroll y sus gaps (header.css) */
+  .gb-talk {
+    column-gap: 6px;
   }
 }

@@ -3,6 +3,33 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 Versionado semántico (SemVer): `MAJOR.MINOR.PATCH`.
 
+## [1.0.3] — 2026-10-08
+
+### Added
+- **Arquitectura desacoplada por WebSocket**: nuevo `js/websocketClient.js` como único módulo de red (JSON de ida y vuelta, backoff exponencial 600 ms → 30 s con jitter del 25 %, heartbeat 15 s, detección de enlace muerto a 35 s y cola deduplicada por dirección). Endpoint por prioridad `?ws=…` → `localStorage["cuedesk.ws.url"]` → `window.CUEDESK_WS_URL` → `ws://localhost:8080`; `?ws=off` lo desactiva.
+- **Bus OSC puro**: `js/osc.js` deja de hacer red — publica `cuedesk:osc-out` con payload `{ "action": "osc_send", "address": "/ch/01/mix/fader", "args": [0.75] }` y expone `CueDesk.OSC.receive(ruta, valor)` para la entrada genérica.
+- **Chip de enlace Online/Offline** en el header con panel `#conn-panel` (endpoint editable), pintado con el evento `cuedesk:link`.
+- **Logotipo oficial** en la esquina superior izquierda: `assets/CueDesk_logo.png` (469×104, fondo transparente, tinta cian) con precarga en el `<head>`, sustituyendo al SVG + wordmark.
+- **Lanzador local**: `CueDesk_Mixer.bat` + `server.js` (servidor estático Node sin dependencias, puerto 8765, `no-cache`, defensa contra *path traversal*) para arrancar la app en modo Mixer; opciones `--bridge` y `--port`.
+- **Vista inicial por URL**: `?view=mixer | queue | routing | scenes`.
+- `docs/ARQUITECTURA.md`: análisis de arquitectura en 4 bloques (Driver Pattern, optimización del puente en la Raspberry Pi, escenas multi-marca en USF, hoja de ruta F0–F5 y top-3 de riesgos).
+
+### Changed
+- **Barra global (subheader)**: flex sin posicionamiento absoluto, `.gb-center` centrado con auto-margins, gaps independientes por grupo (14 px base; 10/8/6/8 internos) y `white-space: nowrap` en píldoras, sync, AUTOMIX y CLEAR SOLO.
+- **Panorama minimalista**: desaparece la cabecera con la etiqueta estática "PAN" y su lectura; sólo queda el slider horizontal compacto con la marca "C" centrada debajo (el valor sigue disponible en `aria-valuetext`).
+- **Espaciado vertical**: `--pan-h` de 46 a 36 px; las 10 px liberadas las absorben vúmetros y fader (recorrido de fader +10 px).
+- Cabeceras de tira uniformes con `--head-h: 44px` y `.strip--master .strip__display` centrado.
+
+### Fixed
+- **Solape talkback ↔ AUTOMIX**: holgura medida de 234 px y huecos laterales simétricos de 140 px en la barra global (antes el deslizador pisaba la etiqueta).
+- **"AUTOMIX" partida o recortada**: `scrollWidth == clientWidth` en todos los grupos de la barra global y scroll horizontal oculto.
+- **Alineación entre tarjetas**: vúmetros, recorrido del fader, readout y botones M/S arrancan a la misma Y en las 9 tiras (canales, master y huecos `.strip__gap`), incluidos los bancos sin panorama.
+- Desfase de 0 px entre el recorrido del panorama y la marca "C" en los 8 canales.
+
+### Verified
+- Consola con 0 errores y 0 avisos en Mixer, Queue, Routing y Scenes.
+- Medición en navegador a 1296×886: logo 126,3×28 px con 342,8 px de holgura hasta las pestañas; sin scroll X/Y; estilos base `#121214` / `#1e1e24` / `#26262e` / radio 10 px.
+
 ## [1.0.2] — 2026-10-07
 
 ### Added

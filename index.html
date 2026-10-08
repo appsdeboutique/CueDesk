@@ -33,9 +33,31 @@
     Los controles de vista (tabs, capas de banco, sesión, preview local) son
     estado del cliente — igual que en X32-Edit, donde la selección de capa no
     existe como parámetro de consola — y usan data-action.
+
+    ----------------------------------------------------------------------------
+    TRANSPORTE — arquitectura desacoplada (js/websocketClient.js)
+    ----------------------------------------------------------------------------
+    La UI jamás hace red: sólo publica en el bus OSC (js/osc.js).
+
+      Salida   UI → bus:  document "cuedesk:osc-out"  →  JSON:
+                 { "action": "osc_send", "address": "/ch/01/mix/fader", "args": [0.75] }
+      Entrada  bus ← JSON (genérico, se parsea de forma agnóstica):
+                 { "action": "osc_recv", "address": "/ch/01/mix/on", "args": [0] }
+                 { "address": "/ch/01/mix/pan", "args": [-24] }
+                 { "address": "/meters/1", "args": [[L,R], …] }   vúmetros
+                 [ paquete1, paquete2, … ]                        lote
+               → CueDesk.OSC.receive(ruta, valor) → DOM en tiempo real.
+
+    Conexión persistente a ws://localhost:8080 (o la IP de la consola/RPi):
+    reconexión con backoff exponencial + jitter (600 ms → 30 s), keepalive
+    con detección de enlace muerto y cola de mensajes deduplicada mientras
+    no hay red. El LED "Online/Offline" del header se pinta con el evento
+    "cuedesk:link"; el endpoint se cambia con ?ws=…, localStorage o el
+    panel del propio chip.
     ============================================================================
   -->
 
+  <link rel="preload" as="image" href="assets/CueDesk_logo.png">
   <link rel="stylesheet" href="css/tokens.css">
   <link rel="stylesheet" href="css/base.css">
   <link rel="stylesheet" href="css/header.css">
@@ -49,12 +71,10 @@
     <!-- ============================ HEADER FIJO ============================ -->
     <header class="topbar">
       <a class="brand" href="#" aria-label="CueDesk">
-        <svg class="brand__icon" viewBox="0 0 28 28" fill="none" aria-hidden="true">
-          <path d="M2 14h3l2.5-7 3.5 15 3.5-19 3.5 21 3-12 2 5h3"
-                stroke="currentColor" stroke-width="2"
-                stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-        <span class="brand__word">Cue<b>Desk</b></span>
+        <!-- Logotipo oficial (assets/CueDesk_logo.png): fondo transparente,
+             tinta cian, lienzo 469×104 recortado al contenido. -->
+        <img class="brand__logo" src="assets/CueDesk_logo.png" width="469" height="104"
+             alt="CueDesk" decoding="async">
       </a>
 
       <nav class="tabs" role="tablist" aria-label="Vistas principales">
@@ -66,7 +86,41 @@
 
       <div class="topbar__status">
         <span class="chip chip--model">X32</span>
-        <span class="chip chip--online"><i class="led led--green"></i>Online</span>
+
+        <!-- Indicador de enlace (sincronizado por websocketClient.js) -->
+        <button type="button" class="chip chip--online is-retry" data-action="conn"
+                aria-expanded="false" aria-controls="conn-panel"
+                title="Estado del enlace WebSocket">
+          <i class="led led--amber"></i><span class="conn__label">Offline</span>
+        </button>
+
+        <!-- Panel del transporte: endpoint dinámico (localhost / Raspberry Pi) -->
+        <div class="conn-panel" id="conn-panel" hidden role="dialog" aria-label="Conexión WebSocket">
+          <div class="conn-panel__head">
+            <span class="conn-panel__title">Enlace de transporte</span>
+            <span class="conn-panel__state is-off" data-role="conn-state">OFFLINE</span>
+          </div>
+
+          <label class="conn-panel__label" for="conn-url">Endpoint WebSocket</label>
+          <input class="conn-panel__input" id="conn-url" data-role="conn-url" type="text"
+                 spellcheck="false" autocomplete="off" placeholder="ws://192.168.1.20:8080">
+
+          <p class="conn-panel__hint">
+            Acepta <code>ws://host:puerto</code>, <code>host:puerto</code> o sólo la IP
+            (puerto 8080 por defecto). Se guarda en <code>localStorage</code>; también se puede
+            fijar con <code>?ws=…</code> o <code>window.CUEDESK_WS_URL</code>.
+            Usa <code>?ws=off</code> para trabajar sin enlace.
+          </p>
+
+          <div class="conn-panel__actions">
+            <button type="button" class="connbtn connbtn--primary" data-action="conn-connect">Conectar</button>
+            <button type="button" class="connbtn" data-action="conn-disconnect">Desconectar</button>
+            <button type="button" class="connbtn connbtn--ghost" data-action="conn-close">Cerrar</button>
+          </div>
+
+          <div class="conn-panel__stats" data-role="conn-stats"></div>
+        </div>
+
         <span class="chip chip--loc">foh</span>
         <button type="button" class="btn-ghost" data-action="sign-out">Sign out</button>
       </div>
@@ -255,13 +309,14 @@
     <!-- ================================ FOOTER ============================ -->
     <footer class="footer">
       <p>2026 StegeNet Systems. All rights reserved.</p>
-      <span class="footer__version" title="CueDesk · versión de la interfaz">v1.0.2</span>
+      <span class="footer__version" title="CueDesk · versión de la interfaz">v1.0.3</span>
     </footer>
   </div>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <script defer src="js/osc.js"></script>
+  <script defer src="js/websocketClient.js"></script>
   <script defer src="js/controls.js"></script>
   <script defer src="js/meters.js"></script>
   <script defer src="js/mixer.js"></script>

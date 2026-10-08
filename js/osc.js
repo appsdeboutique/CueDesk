@@ -1,6 +1,15 @@
 /* ==========================================================================
  * CueDesk — osc.js
- * Bus OSC (semántica Behringer X32) + utilidades de conversión dB.
+ * ----------------------------------------------------------------------------
+ * BUS DE MENSAJES (semántica Behringer X32). Este módulo NO hace red:
+ * sólo publica/suscribe valores por ruta OSC. El transporte (WebSocket,
+ * JSON, reconexiones) vive aislado en js/websocketClient.js.
+ *
+ *   salida: CueDesk.OSC.send(path, value, type)
+ *             → throttle + evento document "cuedesk:osc-out"
+ *             → websocketClient.js lo serializa {action:"osc_send", …}
+ *   entrada: websocketClient.js llama a CueDesk.OSC.receive(path, value)
+ *             → notifica a los suscriptores (faders, mute, vúmetros…)
  *
  * Rutas de referencia (X32 OSC Remote Protocol + protocolo no oficial X32/M32):
  *   /ch/01/mix/fader    level [0.0 … 1.0 (+10 dB), 1024]  (float)
@@ -67,33 +76,23 @@ CueDesk.dB = (function () {
   return { clamp01, fromFader, toFader, fmt, fmtTalk, fmtPan };
 })();
 
-/* ------------------------------------------------------------ Bus OSC */
+/* ---------------------------------------------------------------- Bus OSC */
 
 CueDesk.OSC = (function () {
-  const dB = CueDesk.dB;
+  "use strict";
 
-  /** Suscriptores por ruta (registro compartido con CueDesk.Controls). */
+  /** Suscriptores por ruta. */
   const listeners = new Map();
 
-  /** Transporte WebSocket real (opcional). Ej.: CueDesk.OSC.connect("ws://…") */
-  let transport = null;
-
-  /** Log de mensajes salientes hacia la consola. */
+  /** true → traza las salidas (desactivable: CueDesk.OSC.debug = false). */
   let debug = true;
 
   const lastSent = new Map();
   const trailing = new Map();
 
+  /** Salida al bus: traza + evento que captura la capa de transporte. */
   function emit(path, value, type) {
-    if (debug) console.debug("[OSC → X32]", path, value, "," + type);
-
-    if (transport && transport.readyState === 1) {
-      try {
-        transport.send(JSON.stringify({ path: path, value: value, type: type }));
-      } catch (err) {
-        console.warn("[OSC] transport send failed:", err);
-      }
-    }
+    if (debug) console.debug("[OSC out]", path, value, "," + type);
 
     document.dispatchEvent(
       new CustomEvent("cuedesk:osc-out", {
@@ -103,9 +102,9 @@ CueDesk.OSC = (function () {
   }
 
   /**
-   * Envío hacia la consola.
+   * Publica un cambio de la UI en el bus.
    * @param {string} path   p.ej. "/ch/01/mix/fader"
-   * @param {*}      value  float 0…1 / int / string
+   * @param {*}      value  float 0…1 / int / string / array
    * @param {string} type   "f" | "i" | "s"
    * @param {object} opts   { throttle: ms (default 40), commit: bool }
    */
@@ -153,7 +152,11 @@ CueDesk.OSC = (function () {
     }
   }
 
-  /** Recibido desde la consola (WebSocket entrante). */
+  /**
+   * Entrada al bus (la llama la capa de transporte con el valor ya parseado).
+   * @param {string} path
+   * @param {*}      value  escalar o array (vúmetros)
+   */
   function receive(path, value) {
     const subs = listeners.get(path);
     if (subs) {
@@ -181,44 +184,12 @@ CueDesk.OSC = (function () {
     };
   }
 
-  /**
-   * Conecta un WebSocket y lo enlaza con el bus.
-   * Mensajes esperados: JSON { "path": "/ch/01/mix/fader", "value": 0.75 }
-   */
-  function connect(url) {
-    const ws = new WebSocket(url);
-    ws.addEventListener("open", function () {
-      document.body.classList.add("is-online");
-    });
-    ws.addEventListener("close", function () {
-      document.body.classList.remove("is-online");
-    });
-    ws.addEventListener("message", function (ev) {
-      try {
-        const msg = JSON.parse(ev.data);
-        if (msg && msg.path !== undefined) receive(msg.path, msg.value);
-      } catch (err) {
-        console.warn("[OSC] mensaje no parseable:", ev.data);
-      }
-    });
-    transport = ws;
-    return ws;
-  }
-
   return {
     send: send,
     receive: receive,
     on: on,
-    connect: connect,
     flush: flush,
-    get transport() {
-      return transport;
-    },
-    set debug(v) {
-      debug = !!v;
-    },
-    get debug() {
-      return debug;
-    },
+    set debug(v) { debug = !!v; },
+    get debug() { return debug; },
   };
 })();
