@@ -338,7 +338,9 @@ CueDesk.Mixer = (function () {
         '<div class="hslider hslider--pan" data-slider="horizontal" data-role="pan" ' +
           'data-osc-path="' + m.paths.pan + '" data-osc-address="' + m.paths.pan + '" data-osc-type="f" ' +
           'aria-label="Panorama ' + escapeHtml(m.name) + '">' +
-          '<span class="hslider__track"><span class="hslider__thumb"></span></span>' +
+          '<span class="hslider__track">' +
+            '<span class="hslider__fill"></span><span class="hslider__thumb"></span>' +
+          "</span>" +
         "</div>" +
         // Eje central, siempre centrado debajo del recorrido (el valor vive
         // en aria-valuetext, no en texto estático)

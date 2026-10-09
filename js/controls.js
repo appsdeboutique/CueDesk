@@ -75,7 +75,8 @@ CueDesk.Controls = (function () {
       el.addEventListener("pointercancel", this._onUp);
       el.addEventListener("keydown", this._onKey);
       el.addEventListener("wheel", this._onWheel, { passive: false });
-      el.addEventListener("dblclick", this._onReset.bind(this));
+      this._onDbl = this._onReset.bind(this);
+      el.addEventListener("dblclick", this._onDbl);
 
       el.__slider = this;
       instances.add(this);
@@ -151,6 +152,24 @@ CueDesk.Controls = (function () {
     _onDown(e) {
       if (e.button !== undefined && e.button !== 0) return;
       e.preventDefault();
+
+      // Doble clic / doble tap: vuelve al valor de reposo (pan → C, nivel → 0 dB)
+      const now =
+        typeof performance !== "undefined" && performance.now
+          ? performance.now()
+          : Date.now();
+      const x = e.clientX || 0;
+      const y = e.clientY || 0;
+      const dbl =
+        now - (this._tapT === undefined ? -1e9 : this._tapT) < 320 &&
+        Math.abs(x - (this._tapX || 0)) < 26 &&
+        Math.abs(y - (this._tapY || 0)) < 26;
+      this._tapT = now;
+      this._tapX = x;
+      this._tapY = y;
+      this._downX = x;
+      this._downY = y;
+
       try {
         this.el.setPointerCapture(e.pointerId);
       } catch (_) { /* noop */ }
@@ -158,10 +177,23 @@ CueDesk.Controls = (function () {
       this.el.classList.add("is-dragging");
       this._seek(e);
       this.el.focus({ preventScroll: true });
+
+      if (dbl) {
+        this._tapT = -1e9;
+        this._onReset();
+      }
     }
 
     _onMove(e) {
       if (!this.dragging) return;
+      // Si el puntero se desplaza, fue un arrastre y no un tap: invalida el
+      // posible doble tap.
+      if (
+        Math.abs((e.clientX || 0) - (this._downX || 0)) > 8 ||
+        Math.abs((e.clientY || 0) - (this._downY || 0)) > 8
+      ) {
+        this._tapT = -1e9;
+      }
       this._seek(e);
     }
 
@@ -227,6 +259,7 @@ CueDesk.Controls = (function () {
       el.removeEventListener("pointercancel", this._onUp);
       el.removeEventListener("keydown", this._onKey);
       el.removeEventListener("wheel", this._onWheel);
+      if (this._onDbl) el.removeEventListener("dblclick", this._onDbl);
       delete el.__slider;
       instances.delete(this);
     }

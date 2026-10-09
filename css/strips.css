@@ -32,7 +32,7 @@
      garantizan que vúmetros, recorrido del fader y botones M/S arranquen
      a la misma Y en los 8 canales y en el master. */
   --head-h: 44px;
-  --pan-h: 36px; /* sólo recorrido + eje C (sin cabecera de texto) */
+  --pan-h: 38px; /* sólo recorrido + eje C (sin cabecera de texto) */
   background: var(--bg-card);
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -123,7 +123,7 @@
 
 .pan {
   display: grid;
-  grid-template-rows: 18px 8px; /* recorrido / eje C */
+  grid-template-rows: 20px 8px; /* recorrido / eje C */
   row-gap: 2px;
   align-content: center;
   height: var(--pan-h);
@@ -160,7 +160,17 @@
 }
 
 .hslider--pan {
-  height: 18px;
+  height: 20px;
+}
+
+/* Carril del pan engrosado al alto del pomo (19 px) */
+.hslider--pan .hslider__track {
+  height: 19px;
+}
+
+.hslider--pan .hslider__track::after {
+  top: -2px;
+  bottom: -2px;
 }
 
 .hslider.is-dragging {
@@ -186,6 +196,20 @@
   width: 1px;
   transform: translateX(-50%);
   background: #40404c;
+}
+
+/* Relleno bipolar del pan: del centro (C) al pomo; vacío si está en C */
+.hslider__fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(min(var(--v, 0.5), 0.5) * 100%);
+  width: calc((max(var(--v, 0.5), 0.5) - min(var(--v, 0.5), 0.5)) * 100%);
+  border-radius: 5px;
+  background: var(--cyan-bright);
+  box-shadow: 0 0 8px var(--cyan-glow);
+  pointer-events: none;
+  z-index: 1;
 }
 
 /* Pulgar del slider horizontal */

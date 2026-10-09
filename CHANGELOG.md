@@ -3,6 +3,16 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 Versionado semántico (SemVer): `MAJOR.MINOR.PATCH`.
 
+## [1.0.11] — 2026-10-09
+
+### Changed
+- **Relleno del fader PAN**: el carril del panorama ahora **pinta desde el centro (C)** hacia el pomo cuando se sale del centro (comportamiento bipolar); en C no hay relleno. Usa el mismo cian que el resto de carriles.
+- **Carril del PAN engrosado**: 10 → **19 px**, para igualar el **alto del pomo** (pomo 9 × 19 px). La fila del pan crece de 36 → 38 px (`.pan`, `--pan-h`) y en sintonía lo hacen el hueco de las tiras sin pan y la etiqueta del master, sin desalinear nada.
+- **Doble clic / doble tap**: sobre cualquier fader/deslizador devuelve al valor de reposo (PAN → **C**, nivel → 0 dB). Se añade detección propia de **doble tap** para táctil (320 ms / 26 px); un arrastre la invalida para no confundirse con un toque.
+
+### Verified
+- PAN en 0.5 sin relleno; desplazado, relleno cian desde el centro (`left`/`width` correctos); pomo 9 × 19 dentro de un carril de 19 px. Doble tap → C (0.5) y doble clic nativo → C; un arrastre real no dispara el reset. 1296×886: 9 tiras alineadas (mismo top de fader y de vúmetro), sin scroll X/Y, 0 errores (salvo WebSocket sin X32).
+
 ## [1.0.10] — 2026-10-09
 
 ### Changed
