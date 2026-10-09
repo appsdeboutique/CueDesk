@@ -571,13 +571,13 @@
    columna del vúmetro (75 % del carril). */
 .strip__core .fader--scale {
   justify-content: flex-end;
-  padding: 12px 5px 8px 0;
+  padding: 12px 0 8px;
 }
 
 .fader__scale {
   position: absolute;
   left: 0;
-  right: 33px; /* borde izquierdo del carril (5 + 26) + 2 px de aire */
+  right: 33px; /* borde izquierdo del carril (26) + 7 px de aire */
   top: 25px;
   bottom: 21px;
   pointer-events: none; /* el arrastre del fader sigue siendo del carril entero */
@@ -684,7 +684,7 @@
 
 @media (max-width: 1440px) {
   .meters {
-    padding: 6px 6px 2px;
+    padding: 6px 4px 2px;
     gap: 2px;
   }
 

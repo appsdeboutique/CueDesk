@@ -3,6 +3,15 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 Versionado semántico (SemVer): `MAJOR.MINOR.PATCH`.
 
+## [1.0.9] — 2026-10-09
+
+### Changed
+- **Escala del fader (canales)**: se separa del carril. Se elimina el hueco de 5 px a la derecha del carril (padding del fader `12px 5px 8px 0` → `12px 0 8px`), con lo que la escala pasa de **2 a 7 px de aire** respecto al carril y su banda crece de ~12.5 a ~16.5 px (todas las etiquetas caben dentro de la tira).
+- **Vúmetros (≤1440 px)**: se reduce ligeramente su padding lateral (6 → 4 px) para ceder ancho a la columna del fader.
+
+### Verified
+- 1296 px: franja de escala 16.5 px con 7 px de aire al carril y sin desbordar la tira; pomo del master dentro de su carril; sin scroll X; 0 errores (salvo WebSocket sin X32).
+
 ## [1.0.8] — 2026-10-09
 
 ### Changed
