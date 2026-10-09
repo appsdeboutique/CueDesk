@@ -3,6 +3,15 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 Versionado semántico (SemVer): `MAJOR.MINOR.PATCH`.
 
+## [1.0.12] — 2026-10-09
+
+### Changed
+- **Viewbar (pestañas)**: el contenedor pasa a `display: flex; width: 100%` (sin `justify-content` ni padding lateral) y la tira `.viewbar-tabs` lo llena (`flex: 1; width: 100%`). Cada **tab** es `flex: 1 1 0%`, de modo que las seis se reparten el ancho **a partes iguales**.
+- **Divisor entre tabs**: el `border-left` de 1 px pasa a `box-shadow: inset 1px 0 0 #101014` para no alterar el reparto (las tabs quedan idénticas en ancho).
+
+### Verified
+- 1296×886: 6 tabs de **216.00 px exactos** (Mixer / Setup / Routing / Meter / Scenes / Queue) que van de 0 a 1296; sin scroll X/Y; 0 errores (salvo WebSocket sin X32).
+
 ## [1.0.11] — 2026-10-09
 
 ### Changed

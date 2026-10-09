@@ -59,9 +59,9 @@
    fija por --viewbar-h en el grid .app. */
 .viewbar {
   display: flex;
+  width: 100%;
   align-items: flex-end;
-  justify-content: center;
-  padding: 0 24px;
+  padding: 0;
   background: #161619;
   border-bottom: 1px solid #222228;
 }
@@ -70,6 +70,8 @@
    enganchado a .tab / .is-active */
 .viewbar-tabs {
   display: flex;
+  flex: 1;
+  width: 100%;
   align-items: flex-end;
   gap: 0;
   padding: 0;
@@ -82,6 +84,7 @@
    filete técnico de 1 px con la solapa vecina y CERO sombra de botón. */
 .viewbar .tab {
   position: relative;
+  flex: 1;           /* reparto a partes iguales */
   height: 40px;      /* +10 % vertical */
   padding: 0 34px;   /* +30 % horizontal */
   background: #1a1a20;
@@ -95,7 +98,7 @@
 }
 
 .viewbar .tab + .tab {
-  border-left: 1px solid #101014;
+  box-shadow: inset 1px 0 0 #101014;
 }
 
 .viewbar .tab:hover:not(.is-active):not(:disabled) {
