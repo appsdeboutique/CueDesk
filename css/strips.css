@@ -641,79 +641,153 @@
   width: 14px;
 }
 
-/* Selector de bus: primera fila del cuerpo del master, dentro de la tarjeta
-   (sin contenedor de cabecera). 30 → 45 px de alto (+50 %). */
+/* Selector de bus: ocupa la cabecera del master (el texto de debajo era
+   redundante, ya que el propio botón dice dónde estamos). Se baja del borde
+   y crece: 45 → 62 px, con 18 px de aire arriba y 10 px abajo (+ gap 8 = 90),
+   de modo que fader y vúmetros del master siguen arrancando a la misma Y que
+   los 8 canales (44 + 38 = 90 + 8). */
 .master__select {
   flex: none;
   align-self: stretch;
-  height: 45px;
-  margin: 0 8px;
-  padding: 0 26px 0 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  height: 62px;
+  margin: 18px 8px 10px;
+  padding: 0 12px;
   border-radius: 6px;
   background-color: transparent;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='9' height='6'><path d='M0 0h9L4.5 6z' fill='%23ffc12c'/></svg>");
-  background-repeat: no-repeat;
-  background-position: right 9px center;
-  border: 1px solid var(--gold);
-  color: var(--gold);
-  font-size: 12.5px;
+  border: 1px solid var(--bus-color, var(--gold));
+  color: var(--bus-color, var(--gold));
+  font-size: 14px;
   font-weight: 800;
   letter-spacing: 0.5px;
+  text-align: left;
   appearance: none;
   cursor: pointer;
-  transition: background-color 0.12s, box-shadow 0.12s;
+  transition: background-color 0.12s, border-color 0.12s, color 0.12s;
+}
+
+.master__select-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.master__select::after {
+  content: "";
+  flex: none;
+  width: 0;
+  height: 0;
+  border-left: 4.5px solid transparent;
+  border-right: 4.5px solid transparent;
+  border-top: 5.5px solid currentColor;
 }
 
 .master__select:hover {
-  background-color: rgba(255, 193, 44, 0.1);
-  box-shadow: 0 0 10px rgba(255, 193, 44, 0.3);
-}
-
-/* La etiqueta cede 1 px (38 → 37) para que la fila del selector (45) no
-   desplace el núcleo: el fader/vúmetros del master siguen arrancando a la
-   misma Y que los canales (44 + 38 = 45 + 37 = 82). */
-.strip--master .master__label {
-  height: calc(var(--pan-h) - 1px);
-}
-
-.master__label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  /* Misma altura que el bloque de pan de las tiras: alinea vúmetros,
-     fader y botones del master con los de los 8 canales. */
-  height: var(--pan-h);
-  padding: 0 9px;
-  flex: none;
-  color: var(--text-dim);
-  font-size: 11.5px;
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-}
-
-.master__label .tag {
-  flex: none;
-  display: inline-grid;
-  place-items: center;
-  height: 16px;
-  padding: 0 5px;
-  border-radius: 4px;
-  background: var(--cyan-tint);
-  border: 1px solid rgba(0, 192, 206, 0.4);
-  color: var(--cyan-bright);
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.6px;
-}
-
-.master__label span:last-child {
-  overflow: hidden;
-  text-overflow: ellipsis;
+  background-color: rgba(255, 255, 255, 0.07);
+  box-shadow: 0 0 9px -2px currentColor;
 }
 
 .strip--master .strip__buttons {
   grid-template-columns: 1fr;
+}
+
+/* --------------------------------------------------------------------------
+   Caja selectora de bus del master — cuadros generosos
+   (panel fijo fuera de la tarjeta para que el overflow del strip no lo recorte)
+   -------------------------------------------------------------------------- */
+
+.bus-picker {
+  position: fixed;
+  z-index: 80;
+  display: none;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  width: 300px;
+  max-height: min(78vh, 560px);
+  overflow-y: auto;
+  padding: 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.62);
+}
+
+.bus-picker.is-open {
+  display: grid;
+}
+
+.bus-cell {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  min-height: 52px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--bg-panel);
+  color: var(--text-dim);
+  text-align: left;
+  transition: border-color 0.12s, background-color 0.12s, color 0.12s;
+}
+
+.bus-cell:hover {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+.bus-cell.is-active {
+  border-color: var(--gold);
+  background: rgba(255, 193, 44, 0.14);
+  color: var(--gold);
+}
+
+.bus-cell__tag {
+  flex: none;
+  align-self: flex-start;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--c, #f4f4f6);
+  color: #101014;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+}
+
+.bus-cell[data-color="off"] .bus-cell__tag {
+  color: #e6e6ee;
+}
+
+.bus-cell__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.bus-cell.is-editing {
+  border-color: var(--cyan-bright);
+}
+
+.bus-cell__edit {
+  width: 100%;
+  min-width: 0;
+  padding: 1px 4px;
+  border: 1px solid var(--cyan-bright);
+  border-radius: 4px;
+  background: var(--bg-inset);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.bus-cell__edit:focus-visible {
+  outline: none;
 }
 
 /* --------------------------------------------------------------------------

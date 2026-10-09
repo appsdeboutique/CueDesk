@@ -226,14 +226,10 @@
 
           <!-- ======================= MASTER (Main LR) ====================== -->
           <section class="strip strip--master" data-unit="master" aria-label="Master">
-            <select class="master__select" data-action="master-select" aria-label="Bus master">
-              <option value="st">Main LR</option>
-              <option value="m">Main M/C</option>
-            </select>
-
-            <div class="master__label">
-              <span class="tag">LR</span><span class="master__name">Main LR</span>
-            </div>
+            <button type="button" class="master__select" data-action="master-select"
+                    aria-haspopup="listbox" aria-expanded="false" aria-label="Bus master">
+              <span class="master__select-name">Main LR</span>
+            </button>
 
             <!-- CONTENEDOR FLEX PARA UNIR VÚMETROS Y FADER EN PARALELO -->
             <div class="strip__core">
@@ -351,7 +347,7 @@
     <!-- ================================ FOOTER ============================ -->
     <footer class="footer">
       <p>2026 StegeNet Systems. All rights reserved.</p>
-      <span class="footer__version" title="CueDesk · versión de la interfaz">v1.0.13</span>
+      <span class="footer__version" title="CueDesk · versión de la interfaz">v1.0.14</span>
     </footer>
   </div>
 

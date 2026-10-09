@@ -3,6 +3,23 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 Versionado semántico (SemVer): `MAJOR.MINOR.PATCH`.
 
+## [1.0.14] — 2026-10-09
+
+### Added
+- **Selector de BUS del master**: caja propia con cuadros generosos para **Main LR**, **M/C Mono** y **Bus 01–16** (18 destinos). Cada destino tiene su estado de fader/mute y sus rutas OSC (`/main/st|m/…` y `/bus/NN/…`).
+- **Renombrar buses**: clic derecho o pulsación larga abre un editor inline (Enter confirma, Escape cancela). El nombre se guarda en `localStorage` (`cuedesk.bus.names`) y se envía por OSC a `/bus/NN/config/name`.
+- **Color por bus**: paleta X32 completa (`off…white`); el botón del master hereda el color (borde, texto y flecha) y cada cuadro muestra un chip de color. Clic en el chip cicla el color, persiste en `cuedesk.bus.colors` y envía `/bus/NN/config/color`. **Main LR y M/C Mono son siempre blancos**.
+
+### Changed
+- **Se elimina la etiqueta redundante** del master (`.master__label`): el propio botón ya indica dónde estamos. El selector baja 18 px desde el borde de la tarjeta y crece a **62 px** de alto; la flecha pasa a un `::after`.
+- La caja se cierra con clic fuera, Escape o al seleccionar; el activo se resalta.
+
+### Verified
+- 18 destinos con etiquetas `LR` / `M/C` / `01–16`; fader y mute apuntan a `/bus/NN/mix/{fader,on}`; readout por destino (mains `-6.0`, buses `+0.0`).
+- Renombrar por clic derecho y por pulsación larga; nombre persistente tras recargar; Escape restaura.
+- Color persistente tras recargar; el chip cicla sin seleccionar ni cerrar; mains en blanco.
+- Núcleo del master alineado con los canales (top = 309), 9 faders, sin scroll y consola limpia.
+
 ## [1.0.13] — 2026-10-09
 
 ### Changed

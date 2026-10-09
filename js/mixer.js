@@ -33,7 +33,22 @@ CueDesk.Mixer = (function () {
 
   const COLOR_CYCLE = ["green", "red", "yellow"];
   // X32 config/color: {OFF:0, RD:1, GN:2, YE:3, BL:4, MG:5, CY:6, WH:7}
-  const COLOR_ENUM = { red: 1, green: 2, yellow: 3 };
+  const COLOR_ENUM = { off: 0, red: 1, green: 2, yellow: 3, blue: 4, magenta: 5, cyan: 6, white: 7 };
+  const COLOR_FROM_ENUM = {
+    0: "off", 1: "red", 2: "green", 3: "yellow", 4: "blue", 5: "magenta", 6: "cyan", 7: "white",
+  };
+  const COLOR_HEX = {
+    off: "#6b6b78",
+    white: "#f4f4f6",
+    red: "#ff3b30",
+    green: "#22c55e",
+    yellow: "#f5c518",
+    blue: "#2f6bff",
+    magenta: "#ff3bd4",
+    cyan: "#00c0ce",
+  };
+  // Ciclo para los buses (los mains son siempre blancos).
+  const BUS_COLOR_CYCLE = ["white", "red", "green", "yellow", "blue", "magenta", "cyan"];
 
   const FX_NAMES = [
     "FX 1L", "FX 1R", "FX 2L", "FX 2R",
@@ -57,10 +72,107 @@ CueDesk.Mixer = (function () {
   let rack, masterEl;
   let masterSlider = null;
   let masterTarget = "st";
-  const masterState = {
-    st: { faderNorm: dB.toFader(-6), muted: false },
-    m: { faderNorm: dB.toFader(-6), muted: false },
-  };
+  let masterMuteBtn = null;
+  let masterSelectBtn = null;
+  let busPickerEl = null;
+
+  /* Destinos del master: MAIN LR, MAIN M/C y los 16 buses. Cada uno tiene sus
+     rutas OSC y su propio estado de fader/mute. Los buses se pueden renombrar. */
+  const BUS_COUNT = 16;
+  const BUS_NAMES_KEY = "cuedesk.bus.names";
+
+  function loadBusNames() {
+    try {
+      return JSON.parse(localStorage.getItem(BUS_NAMES_KEY) || "{}") || {};
+    } catch (_) {
+      return {};
+    }
+  }
+
+  function saveBusName(n, name) {
+    const map = loadBusNames();
+    map[String(n)] = name;
+    try {
+      localStorage.setItem(BUS_NAMES_KEY, JSON.stringify(map));
+    } catch (_) {}
+  }
+
+  const BUS_COLORS_KEY = "cuedesk.bus.colors";
+
+  function loadBusColors() {
+    try {
+      return JSON.parse(localStorage.getItem(BUS_COLORS_KEY) || "{}") || {};
+    } catch (_) {
+      return {};
+    }
+  }
+
+  function saveBusColor(n, color) {
+    const map = loadBusColors();
+    map[String(n)] = color;
+    try {
+      localStorage.setItem(BUS_COLORS_KEY, JSON.stringify(map));
+    } catch (_) {}
+  }
+
+  function masterPaths(id) {
+    if (id === "st")
+      return { fader: "/main/st/mix/fader", on: "/main/st/mix/on", color: "/main/st/config/color" };
+    if (id === "m")
+      return { fader: "/main/m/mix/fader", on: "/main/m/mix/on", color: "/main/m/config/color" };
+    const n = parseInt(String(id).slice(1), 10);
+    if (n >= 1 && n <= BUS_COUNT) {
+      const b = p2(n);
+      return {
+        fader: "/bus/" + b + "/mix/fader",
+        on: "/bus/" + b + "/mix/on",
+        name: "/bus/" + b + "/config/name",
+        color: "/bus/" + b + "/config/color",
+      };
+    }
+    return { fader: "/main/st/mix/fader", on: "/main/st/mix/on" };
+  }
+
+  const MASTER_TARGETS = (function () {
+    const saved = loadBusNames();
+    const colors = loadBusColors();
+    const list = [
+      { id: "st", kind: "main", tag: "LR", name: "Main LR", color: "white" },
+      { id: "m", kind: "main", tag: "M/C", name: "M/C Mono", color: "white" },
+    ];
+    for (let n = 1; n <= BUS_COUNT; n++) {
+      list.push({
+        id: "b" + n,
+        kind: "bus",
+        n: n,
+        tag: p2(n),
+        name: saved[String(n)] || "Bus " + p2(n),
+        color: colors[String(n)] || "white",
+      });
+    }
+    list.forEach(function (t) {
+      t.paths = masterPaths(t.id);
+    });
+    return list;
+  })();
+
+  function targetById(id) {
+    for (let i = 0; i < MASTER_TARGETS.length; i++) {
+      if (MASTER_TARGETS[i].id === id) return MASTER_TARGETS[i];
+    }
+    return MASTER_TARGETS[0];
+  }
+
+  const masterState = new Map();
+
+  function stateFor(id) {
+    if (!masterState.has(id)) {
+      const isMain = id === "st" || id === "m";
+      masterState.set(id, { faderNorm: dB.toFader(isMain ? -6 : 0), muted: false });
+    }
+    return masterState.get(id);
+  }
+
   const masterSim = {
     L: { level: Meters.MASTER_VOICE.base },
     R: { level: Meters.MASTER_VOICE.base },
@@ -297,8 +409,8 @@ CueDesk.Mixer = (function () {
         m.gainNorm = dB.clamp01((parseFloat(value) + 18) / 36);
     });
 
-    if (path === masterPaths().fader)
-      masterState[masterTarget].faderNorm = dB.clamp01(parseFloat(value));
+    if (path === masterPaths(masterTarget).fader)
+      stateFor(masterTarget).faderNorm = dB.clamp01(parseFloat(value));
   });
 
   function liveStrip(m) {
@@ -672,78 +784,374 @@ CueDesk.Mixer = (function () {
 
   /* ------------------------------------------------------------- master */
 
-  function masterPaths(t) {
-    return t === "m"
-      ? { fader: "/main/m/mix/fader", on: "/main/m/mix/on" }
-      : { fader: "/main/st/mix/fader", on: "/main/st/mix/on" };
+  /* ------------------------------------------------- selector de bus */
+  /* Caja selectora propia (cuadros generosos) para MAIN LR, M/C y los 16
+     buses. El botón abre un panel fijo fuera de la tarjeta —así no lo recorta
+     el overflow del strip—. Clic selecciona; clic derecho o pulsación larga
+     renombra el bus (persistido en localStorage y enviado por OSC). */
+
+  let pickerLpTimer = null;
+  let pickerLpStart = null;
+  let pickerSuppressClick = false;
+  let activeRenameInput = null;
+
+  function targetColor(t) {
+    return t && t.color ? t.color : "white";
   }
+
+  function colorHex(c) {
+    return COLOR_HEX[c] || COLOR_HEX.white;
+  }
+
+  function applyMasterColor() {
+    if (!masterSelectBtn) return;
+    const c = targetColor(targetById(masterTarget));
+    masterSelectBtn.style.setProperty("--bus-color", colorHex(c));
+    masterSelectBtn.dataset.color = c;
+  }
+
+  function refreshBusColor(t) {
+    if (!busPickerEl) return;
+    const cell = busPickerEl.querySelector('[data-bus-id="' + t.id + '"]');
+    if (!cell) return;
+    const c = targetColor(t);
+    cell.dataset.color = c;
+    cell.style.setProperty("--c", colorHex(c));
+  }
+
+  function cycleTargetColor(t) {
+    if (t.kind !== "bus") return;
+    const idx = BUS_COLOR_CYCLE.indexOf(targetColor(t));
+    t.color = BUS_COLOR_CYCLE[(idx + 1) % BUS_COLOR_CYCLE.length];
+    saveBusColor(t.n, t.color);
+    refreshBusColor(t);
+    if (t.id === masterTarget) applyMasterColor();
+    if (t.paths.color) OSC.send(t.paths.color, COLOR_ENUM[t.color], "i", { commit: true });
+  }
+
+  function buildBusPicker() {
+    if (busPickerEl) return;
+    busPickerEl = document.createElement("div");
+    busPickerEl.className = "bus-picker";
+    busPickerEl.setAttribute("role", "listbox");
+    busPickerEl.setAttribute("aria-label", "Selector de bus del master");
+    busPickerEl.innerHTML = MASTER_TARGETS.map(function (t) {
+      const c = targetColor(t);
+      return (
+        '<button type="button" class="bus-cell" role="option" data-bus-id="' +
+        t.id +
+        '" data-color="' +
+        c +
+        '" style="--c:' +
+        colorHex(c) +
+        '" aria-selected="false">' +
+        '<span class="bus-cell__tag"' +
+        (t.kind === "bus" ? ' title="Color del bus — clic para cambiar"' : "") +
+        ">" +
+        escapeHtml(t.tag) +
+        "</span>" +
+        '<span class="bus-cell__name">' +
+        escapeHtml(t.name) +
+        "</span>" +
+        "</button>"
+      );
+    }).join("");
+    document.body.appendChild(busPickerEl);
+
+    busPickerEl.addEventListener("click", onPickerClick);
+    busPickerEl.addEventListener("contextmenu", onPickerContext);
+    busPickerEl.addEventListener("pointerdown", onPickerPointerDown);
+    busPickerEl.addEventListener("pointermove", onPickerPointerMove);
+    busPickerEl.addEventListener("pointerup", cancelPickerLongPress);
+    busPickerEl.addEventListener("pointercancel", cancelPickerLongPress);
+    busPickerEl.addEventListener("pointerleave", cancelPickerLongPress);
+  }
+
+  function onPickerClick(e) {
+    if (pickerSuppressClick) {
+      pickerSuppressClick = false;
+      return;
+    }
+    const cell = e.target.closest(".bus-cell");
+    if (!cell || cell.querySelector("input")) return;
+    if (e.target.closest(".bus-cell__tag")) {
+      const t = targetById(cell.dataset.busId);
+      if (t.kind === "bus") {
+        cycleTargetColor(t);
+        return;
+      }
+    }
+    selectTarget(cell.dataset.busId);
+    closeBusPicker();
+  }
+
+  function onPickerContext(e) {
+    const cell = e.target.closest(".bus-cell");
+    if (!cell) return;
+    const t = targetById(cell.dataset.busId);
+    if (t.kind !== "bus") return; // MAIN LR / M/C no se renombran
+    e.preventDefault();
+    cancelPickerLongPress();
+    pickerSuppressClick = true;
+    startRename(cell, t);
+  }
+
+  function onPickerPointerDown(e) {
+    if (e.target.closest("input")) return;
+    const cell = e.target.closest(".bus-cell");
+    if (!cell || targetById(cell.dataset.busId).kind !== "bus") return;
+    pickerLpStart = { x: e.clientX, y: e.clientY };
+    clearTimeout(pickerLpTimer);
+    pickerLpTimer = setTimeout(function () {
+      pickerLpTimer = null;
+      pickerSuppressClick = true;
+      startRename(cell, targetById(cell.dataset.busId));
+    }, 480);
+  }
+
+  function onPickerPointerMove(e) {
+    if (!pickerLpStart) return;
+    if (Math.abs(e.clientX - pickerLpStart.x) > 8 || Math.abs(e.clientY - pickerLpStart.y) > 8)
+      cancelPickerLongPress();
+  }
+
+  function cancelPickerLongPress() {
+    clearTimeout(pickerLpTimer);
+    pickerLpTimer = null;
+    pickerLpStart = null;
+  }
+
+  function startRename(cell, t) {
+    if (cell.querySelector("input")) return;
+    const nameEl = cell.querySelector(".bus-cell__name");
+    const prev = t.name;
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "bus-cell__edit";
+    input.value = prev;
+    input.maxLength = 12;
+    nameEl.textContent = "";
+    nameEl.appendChild(input);
+    cell.classList.add("is-editing");
+    activeRenameInput = input;
+    input.focus();
+    input.select();
+
+    let done = false;
+    function finish(save) {
+      if (done) return;
+      done = true;
+      if (activeRenameInput === input) activeRenameInput = null;
+      const val = input.value.trim().slice(0, 12);
+      cell.classList.remove("is-editing");
+      nameEl.textContent = ""; // quita el input; el nombre lo repinta refreshBusCell
+      if (save && val && val !== prev) applyBusName(t, val, true);
+      else nameEl.textContent = t.name;
+    }
+    input.addEventListener("keydown", function (e) {
+      e.stopPropagation();
+      if (e.key === "Enter") {
+        e.preventDefault();
+        finish(true);
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        finish(false);
+      }
+    });
+    input.addEventListener("blur", function () {
+      finish(true);
+    });
+    input.addEventListener("click", function (e) {
+      e.stopPropagation();
+    });
+    input.addEventListener("pointerdown", function (e) {
+      e.stopPropagation();
+    });
+  }
+
+  function applyBusName(t, name, broadcast) {
+    name = String(name == null ? "" : name).trim().slice(0, 12);
+    if (!name) return;
+    const changed = name !== t.name;
+    t.name = name;
+    if (t.kind === "bus") saveBusName(t.n, name);
+    refreshBusCell(t);
+    if (t.id === masterTarget) updateMasterLabel();
+    if (broadcast && changed && t.paths.name) OSC.send(t.paths.name, name, "s", { commit: true });
+  }
+
+  function refreshBusCell(t) {
+    if (!busPickerEl) return;
+    const cell = busPickerEl.querySelector('[data-bus-id="' + t.id + '"]');
+    if (!cell) return;
+    const nameEl = cell.querySelector(".bus-cell__name");
+    if (nameEl && !nameEl.querySelector("input")) nameEl.textContent = t.name;
+  }
+
+  function updatePickerActive() {
+    if (!busPickerEl) return;
+    busPickerEl.querySelectorAll(".bus-cell").forEach(function (cell) {
+      const on = cell.dataset.busId === masterTarget;
+      cell.classList.toggle("is-active", on);
+      cell.setAttribute("aria-selected", on ? "true" : "false");
+    });
+  }
+
+  function placeBusPicker() {
+    if (!busPickerEl || !masterSelectBtn) return;
+    const r = masterSelectBtn.getBoundingClientRect();
+    const pr = busPickerEl.getBoundingClientRect();
+    let left = r.left;
+    let top = r.bottom + 4;
+    if (left + pr.width > window.innerWidth - 8)
+      left = Math.max(8, window.innerWidth - 8 - pr.width);
+    if (top + pr.height > window.innerHeight - 8) {
+      const above = r.top - 4 - pr.height;
+      top = above >= 8 ? above : Math.max(8, window.innerHeight - 8 - pr.height);
+    }
+    busPickerEl.style.left = left + "px";
+    busPickerEl.style.top = top + "px";
+  }
+
+  function openBusPicker() {
+    buildBusPicker();
+    updatePickerActive();
+    busPickerEl.classList.add("is-open");
+    if (masterSelectBtn) masterSelectBtn.setAttribute("aria-expanded", "true");
+    placeBusPicker();
+    document.addEventListener("pointerdown", onDocPointerDown, true);
+    document.addEventListener("keydown", onDocKeyDown, true);
+    window.addEventListener("resize", placeBusPicker);
+    window.addEventListener("scroll", placeBusPicker, true);
+  }
+
+  function closeBusPicker() {
+    if (!busPickerEl) return;
+    cancelPickerLongPress();
+    if (activeRenameInput) activeRenameInput.blur();
+    busPickerEl.classList.remove("is-open");
+    if (masterSelectBtn) masterSelectBtn.setAttribute("aria-expanded", "false");
+    document.removeEventListener("pointerdown", onDocPointerDown, true);
+    document.removeEventListener("keydown", onDocKeyDown, true);
+    window.removeEventListener("resize", placeBusPicker);
+    window.removeEventListener("scroll", placeBusPicker, true);
+  }
+
+  function toggleBusPicker() {
+    if (busPickerEl && busPickerEl.classList.contains("is-open")) closeBusPicker();
+    else openBusPicker();
+  }
+
+  function onDocPointerDown(e) {
+    if (busPickerEl && busPickerEl.contains(e.target)) return;
+    if (masterSelectBtn && masterSelectBtn.contains(e.target)) return;
+    closeBusPicker();
+  }
+
+  function onDocKeyDown(e) {
+    if (e.key !== "Escape") return;
+    if (activeRenameInput) return; // lo cancela el propio input
+    e.stopPropagation();
+    closeBusPicker();
+  }
+
+  function selectTarget(id) {
+    const t = targetById(id);
+    if (!t || t.id !== id) return;
+    masterTarget = id;
+    const st = stateFor(id);
+    masterSlider.setPath(t.paths.fader);
+    masterSlider.setValue(st.faderNorm, { silent: true });
+    setToggle(masterMuteBtn, st.muted, st.muted ? 0 : 1);
+    updateMasterLabel();
+    updatePickerActive();
+  }
+
+  /* ------------------------------------------------------------- master */
 
   function wireMaster() {
     const faderEl = masterEl.querySelector('[data-role="fader"]');
     const scaleEl = masterEl.querySelector(".fader__scale");
     if (scaleEl) scaleEl.innerHTML = faderScaleHTML(null);
+
+    masterMuteBtn = masterEl.querySelector('[data-role="mute"]');
+    masterSelectBtn = masterEl.querySelector('[data-action="master-select"]');
+    buildBusPicker();
+
     masterSlider = Controls.mount(faderEl, {
       path: masterPaths(masterTarget).fader,
       type: "f",
-      value: masterState[masterTarget].faderNorm,
+      value: stateFor(masterTarget).faderNorm,
       display: Controls.displayDb,
       readout: masterEl.querySelector('[data-role="readout"]'),
       reset: dB.toFader(0),
       throttle: 45,
     });
 
-    const muteBtn = masterEl.querySelector('[data-role="mute"]');
-    muteBtn.addEventListener("click", function () {
-      const st = masterState[masterTarget];
+    masterMuteBtn.addEventListener("click", function () {
+      const st = stateFor(masterTarget);
       st.muted = !st.muted;
-      setToggle(muteBtn, st.muted, st.muted ? 0 : 1);
+      setToggle(masterMuteBtn, st.muted, st.muted ? 0 : 1);
       OSC.send(masterPaths(masterTarget).on, st.muted ? 0 : 1, "i", { commit: true });
     });
 
-    const select = masterEl.querySelector('[data-action="master-select"]');
-    select.addEventListener("change", function () {
-      masterTarget = select.value === "m" ? "m" : "st";
-      const st = masterState[masterTarget];
-      masterSlider.setPath(masterPaths(masterTarget).fader);
-      masterSlider.setValue(st.faderNorm, { silent: true });
-      setToggle(muteBtn, st.muted, st.muted ? 0 : 1);
-      updateMasterLabel();
+    masterSelectBtn.addEventListener("click", function (e) {
+      e.preventDefault();
+      toggleBusPicker();
     });
 
-    /* Entrada remota (consola → UI) */
-    ["st", "m"].forEach(function (t) {
-      const paths = masterPaths(t);
+    /* Entrada remota (consola → UI) para todos los destinos */
+    MASTER_TARGETS.forEach(function (t) {
+      const p = t.paths;
       lifeUnsubs.push(
-        OSC.on(paths.fader, function (v) {
-          masterState[t].faderNorm = dB.clamp01(parseFloat(v));
-          if (t === masterTarget && masterSlider && !masterSlider.dragging)
-            masterSlider.setValue(masterState[t].faderNorm, { silent: true });
+        OSC.on(p.fader, function (v) {
+          const st = stateFor(t.id);
+          st.faderNorm = dB.clamp01(parseFloat(v));
+          if (t.id === masterTarget && masterSlider && !masterSlider.dragging)
+            masterSlider.setValue(st.faderNorm, { silent: true });
         }),
-        OSC.on(paths.on, function (v) {
-          masterState[t].muted = !isOn(v);
-          if (t === masterTarget)
-            setToggle(
-              masterEl.querySelector('[data-role="mute"]'),
-              masterState[t].muted,
-              masterState[t].muted ? 0 : 1
-            );
+        OSC.on(p.on, function (v) {
+          const st = stateFor(t.id);
+          st.muted = !isOn(v);
+          if (t.id === masterTarget) setToggle(masterMuteBtn, st.muted, st.muted ? 0 : 1);
         })
       );
+      if (p.name) {
+        lifeUnsubs.push(
+          OSC.on(p.name, function (v) {
+            applyBusName(t, String(v), false);
+          })
+        );
+      }
+      if (t.kind === "bus" && p.color) {
+        lifeUnsubs.push(
+          OSC.on(p.color, function (v) {
+            const next = COLOR_FROM_ENUM[parseInt(v, 10)];
+            if (!next || next === t.color) return;
+            t.color = next;
+            saveBusColor(t.n, next);
+            refreshBusColor(t);
+            if (t.id === masterTarget) applyMasterColor();
+          })
+        );
+      }
     });
 
     updateMasterLabel();
+    updatePickerActive();
   }
 
   function updateMasterLabel() {
-    const tag = masterEl.querySelector(".master__label .tag");
-    const name = masterEl.querySelector(".master__label .master__name");
-    if (masterTarget === "m") {
-      tag.textContent = "M/C";
-      name.textContent = "Main M/C";
-    } else {
-      tag.textContent = "LR";
-      name.textContent = "Main LR";
+    const t = targetById(masterTarget);
+    if (masterSelectBtn) {
+      const span = masterSelectBtn.querySelector(".master__select-name");
+      if (span) span.textContent = t.name;
     }
+    if (masterMuteBtn) {
+      masterMuteBtn.setAttribute("data-osc-path", t.paths.on);
+      masterMuteBtn.setAttribute("data-osc-address", t.paths.on);
+    }
+    applyMasterColor();
   }
 
   function registerMasterMeters() {
@@ -764,7 +1172,7 @@ CueDesk.Mixer = (function () {
   }
 
   function masterLevel(side) {
-    const st = masterState[masterTarget];
+    const st = stateFor(masterTarget);
     if (st.muted) return -95;
     if (
       masterExt &&
