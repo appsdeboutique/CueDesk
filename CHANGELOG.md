@@ -3,6 +3,16 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 Versionado semántico (SemVer): `MAJOR.MINOR.PATCH`.
 
+## [1.0.7] — 2026-10-09
+
+### Changed
+- **Pomo del fader en horizontal**: pill blanca 22 × 12 px (`border-radius: 999px`), sin marca, centrada y **dentro del carril** (2 px de margen a cada lado).
+- **Carril del fader más ancho**: 16 → 26 px (ranura interior 5 → 8 px, radio 4 px).
+- **Escala del fader**: margen derecho ajustado (23 → 33 px) a la nueva anchura del carril (2 px de aire).
+
+### Verified
+- Navegador: carril 26 px; pomo 22×12 px dentro del carril y centrado; `::after` = `none`; master con el mismo pomo; recorrido `rgb(0, 192, 206)` y `rgb(255, 193, 44)` en GAIN; 2 px escala↔carril; sin scroll X; 0 errores (salvo WebSocket sin X32).
+
 ## [1.0.6] — 2026-10-09
 
 ### Changed
