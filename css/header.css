@@ -82,8 +82,8 @@
    filete técnico de 1 px con la solapa vecina y CERO sombra de botón. */
 .viewbar .tab {
   position: relative;
-  height: 36px;
-  padding: 0 26px;
+  height: 40px;      /* +10 % vertical */
+  padding: 0 34px;   /* +30 % horizontal */
   background: #1a1a20;
   color: var(--text-dim);
   font-size: 13px;
@@ -339,9 +339,10 @@ button.chip:hover {
   margin: 12px 16px;
   padding: 12px 20px;
   background-color: #121215;
-  border: 1px solid #00c0ce;
+  /* Borde del color del fondo + glow exterior cian */
+  border: 1px solid #121215;
   border-radius: 8px;
-  box-shadow: 0 0 12px rgba(0, 192, 206, 0.25), inset 0 0 6px rgba(0, 192, 206, 0.05);
+  box-shadow: 0 0 12px rgba(0, 192, 206, 0.45), 0 0 26px rgba(0, 192, 206, 0.22);
   color: #e0e0e0;
   z-index: 20;
   overflow-x: auto;

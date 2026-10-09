@@ -22,7 +22,7 @@
   min-height: 0;
 }
 
-/* Bloque estilo hardware */
+/* Bloque estilo hardware: sin fondo, borde y texto cian; activo en dorado */
 .bank {
   position: relative;
   display: grid;
@@ -30,34 +30,33 @@
   height: 38px;
   flex: none;
   border-radius: 8px;
-  background: linear-gradient(180deg, #26262e 0%, #1a1a20 100%);
-  border: 1px solid var(--line-strong);
-  color: var(--text-dim);
+  background: none;
+  border: 1px solid var(--cyan-bright);
+  color: var(--cyan-bright);
   font-size: 11.5px;
   font-weight: 700;
   letter-spacing: 0.3px;
-  box-shadow: var(--shadow-btn);
   transition: color 0.14s, background 0.14s, border-color 0.14s,
     box-shadow 0.14s, transform 0.06s;
 }
 
 .bank:hover {
-  color: var(--text);
-  background: linear-gradient(180deg, #2c2c35 0%, #1f1f26 100%);
+  color: #7ef0f8;
+  background: rgba(0, 192, 206, 0.1);
+  box-shadow: 0 0 10px rgba(0, 192, 206, 0.3);
 }
 
 .bank:active {
   transform: translateY(1px);
 }
 
-/* Seleccionado / iluminado en cyan */
+/* Seleccionado / activo: dorado #FFC12C */
 .bank.is-active {
-  color: var(--cyan-bright);
-  background: linear-gradient(180deg, rgba(0, 192, 206, 0.16), rgba(0, 192, 206, 0.07));
-  border-color: rgba(0, 192, 206, 0.65);
-  box-shadow: 0 0 14px rgba(0, 192, 206, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  text-shadow: 0 0 10px rgba(0, 192, 206, 0.75);
+  color: var(--gold);
+  background: none;
+  border-color: var(--gold);
+  box-shadow: 0 0 12px rgba(255, 193, 44, 0.35);
+  text-shadow: none;
 }
 
 .bank.is-active::before {
@@ -69,8 +68,8 @@
   width: 3px;
   height: 16px;
   border-radius: 2px;
-  background: var(--cyan-bright);
-  box-shadow: 0 0 8px var(--cyan-bright);
+  background: var(--gold);
+  box-shadow: 0 0 8px var(--gold);
 }
 
 /* Botón GAIN dedicado, anclado abajo */
@@ -78,20 +77,19 @@
   height: 34px;
   font-size: 11px;
   letter-spacing: 1.6px;
-  background: linear-gradient(180deg, #20202a, #17171d);
+  background: none;
 }
 
 .bank--gain.is-active {
-  color: #1a1000;
-  background: linear-gradient(180deg, #ffcf5c, var(--amber));
-  border-color: var(--amber);
+  color: var(--gold);
+  border-color: var(--gold);
   text-shadow: none;
-  box-shadow: 0 0 14px rgba(255, 179, 0, 0.45), var(--shadow-btn);
+  box-shadow: 0 0 12px rgba(255, 193, 44, 0.35);
 }
 
 .bank--gain.is-active::before {
-  background: #1a1000;
-  box-shadow: none;
+  background: var(--gold);
+  box-shadow: 0 0 8px var(--gold);
 }
 
 .bank--gain:disabled {

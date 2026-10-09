@@ -461,6 +461,7 @@
   flex: none;
 }
 
+/* Sin fondo: borde y texto cian cuando están apagados (M y S) */
 .btn-m,
 .btn-s {
   height: 30px;
@@ -468,48 +469,33 @@
   font-size: 12.5px;
   font-weight: 800;
   letter-spacing: 0.5px;
-  box-shadow: var(--shadow-btn);
+  background: none;
+  border: 1px solid var(--cyan-bright);
+  color: var(--cyan-bright);
   transition: background 0.12s, border-color 0.12s, color 0.12s,
     box-shadow 0.12s;
 }
 
-/* Mute: rojo oscuro -> rojo vivo al activarse */
-.btn-m {
-  background: linear-gradient(180deg, #2c1211, #1f0e0d);
-  border: 1px solid #4a1a17;
-  color: #c96a63;
+.btn-m:hover:not(.is-on),
+.btn-s:hover:not(.is-on) {
+  background: rgba(0, 192, 206, 0.1);
+  box-shadow: 0 0 10px rgba(0, 192, 206, 0.3);
 }
 
-.btn-m:hover {
-  border-color: #6b2a25;
-  color: #e08a84;
-}
-
+/* Mute activo: rojo #FF4D43 */
 .btn-m.is-on {
-  background: linear-gradient(180deg, var(--red-bright), var(--red));
-  border-color: var(--red-bright);
-  color: #ffffff;
-  box-shadow: 0 0 16px rgba(255, 59, 48, 0.6), var(--shadow-btn);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  color: var(--red-hi);
+  background: none;
+  border-color: var(--red-hi);
+  box-shadow: 0 0 14px rgba(255, 77, 67, 0.45);
 }
 
-/* Solo: se ilumina en cyan/teal */
-.btn-s {
-  background: linear-gradient(180deg, #24242c, #19191f);
-  border: 1px solid var(--line-strong);
-  color: var(--text-dim);
-}
-
-.btn-s:hover {
-  border-color: #454552;
-  color: var(--text);
-}
-
+/* Solo activo: dorado #FFC12C */
 .btn-s.is-on {
-  background: linear-gradient(180deg, var(--cyan-bright), var(--cyan));
-  border-color: var(--cyan-bright);
-  color: #04212a;
-  box-shadow: 0 0 16px var(--cyan-glow), var(--shadow-btn);
+  color: var(--gold);
+  background: none;
+  border-color: var(--gold);
+  box-shadow: 0 0 14px rgba(255, 193, 44, 0.45);
 }
 
 /* --------------------------------------------------------------------------
@@ -612,7 +598,10 @@
 
 .strip--master {
   flex: 0 0 clamp(120px, 10vw, 152px);
-  background: linear-gradient(180deg, #1f1f26, #1a1a20);
+  /* Capa cian #00C0CE al 25 % sobre el degradado base */
+  background:
+    linear-gradient(0deg, rgba(0, 192, 206, 0.25), rgba(0, 192, 206, 0.25)),
+    linear-gradient(180deg, #1f1f26, #1a1a20);
   border-color: #2c2c36;
 }
 

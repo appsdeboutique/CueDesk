@@ -3,6 +3,21 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 Versionado semántico (SemVer): `MAJOR.MINOR.PATCH`.
 
+## [1.0.5] — 2026-10-09
+
+### Changed
+- **Viewbar**: solapas +10 % en vertical (`height` 36 → 40 px) y +30 % en horizontal (`padding` 0 26 → 0 34 px).
+- **Globalbar**: borde del mismo color que el fondo (invisible) y glow **exterior** (sin inset) en cian `#00C0CE`.
+- **Bankrail**: botones sin fondo; borde y texto `#00C0CE` en reposo y `#FFC12C` cuando el banco está activo (incluye el botón GAIN y la pastilla lateral).
+- **Botones M/S de tira**: sin fondo, borde y texto `#00C0CE` en reposo; Solo activo `#FFC12C` y Mute activo `#FF4D43`.
+- **Strip master**: capa de color `#00C0CE` al 25 % de transparencia sobre el degradado base.
+
+### Added
+- Tokens `--gold: #ffc12c` (estado activo) y `--red-hi: #ff4d43` (mute activo).
+
+### Verified
+- Navegador a 1296×886: 0 errores de consola; sin scroll X/Y; glow del globalbar sólo exterior; colores computados `rgb(0, 192, 206)` / `rgb(255, 193, 44)` / `rgb(255, 77, 67)`.
+
 ## [1.0.4] — 2026-10-08
 
 ### Added

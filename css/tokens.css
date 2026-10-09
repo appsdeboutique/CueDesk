@@ -36,6 +36,8 @@
   --amber: #ffb300;           /* Solo / avisos / talkback */
   --amber-dark: #453208;
   --amber-tint: rgba(255, 179, 0, 0.13);
+  --gold: #ffc12c;            /* Activo (banco / solo / GAIN) */
+  --red-hi: #ff4d43;          /* Mute activo */
   --green: #2ee06a;           /* Vúmetro verde */
   --led-green: #26d06a;       /* LED Online */
 
