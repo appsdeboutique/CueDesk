@@ -31,7 +31,9 @@ CueDesk.Mixer = (function () {
     bus: { kind: "bus", label: "Bus Mtx", from: 1 },
   };
 
-  const COLOR_CYCLE = ["green", "red", "yellow"];
+  // Ciclo de la barra de color del canal: orden del enum X32 config/color (0–7),
+  // {OFF, RD, GN, YE, BL, MG, CY, WH}. OFF también se alcanza ciclando.
+  const CH_COLOR_CYCLE = ["off", "red", "green", "yellow", "blue", "magenta", "cyan", "white"];
   // X32 config/color: {OFF:0, RD:1, GN:2, YE:3, BL:4, MG:5, CY:6, WH:7}
   const COLOR_ENUM = { off: 0, red: 1, green: 2, yellow: 3, blue: 4, magenta: 5, cyan: 6, white: 7 };
   const COLOR_FROM_ENUM = {
@@ -112,6 +114,24 @@ CueDesk.Mixer = (function () {
     map[String(n)] = color;
     try {
       localStorage.setItem(BUS_COLORS_KEY, JSON.stringify(map));
+    } catch (_) {}
+  }
+
+  const CH_COLORS_KEY = "cuedesk.ch.colors";
+
+  function loadChColors() {
+    try {
+      return JSON.parse(localStorage.getItem(CH_COLORS_KEY) || "{}") || {};
+    } catch (_) {
+      return {};
+    }
+  }
+
+  function saveChColor(id, color) {
+    const map = loadChColors();
+    map[id] = color;
+    try {
+      localStorage.setItem(CH_COLORS_KEY, JSON.stringify(map));
     } catch (_) {}
   }
 
@@ -284,6 +304,17 @@ CueDesk.Mixer = (function () {
     return p2(n);
   }
 
+  /** Color por defecto de una tira recién creada:
+      - buses → color del selector (fuente de verdad);
+      - resto → color persistido en cuedesk.ch.colors o el de fábrica. */
+  function defaultColorFor(kind, n, i) {
+    if (kind === "bus") {
+      const t = targetById("b" + n);
+      return t ? t.color : DEFAULT_COLORS[i];
+    }
+    return loadChColors()[kind + ":" + n] || DEFAULT_COLORS[i];
+  }
+
   function modelFor(bankId, i) {
     const bank = BANKS[bankId];
     const n = bank.from + i;
@@ -296,13 +327,15 @@ CueDesk.Mixer = (function () {
     if (m) return m;
 
     const voice = Meters.VOICES[i % Meters.VOICES.length];
+    const isBus = bank.kind === "bus";
+    const busMeta = isBus ? targetById("b" + n) : null;
     m = {
       key: key,
       kind: bank.kind,
       n: n,
       num: numFor(bank.kind, n),
-      name: nameFor(bank.kind, n, i),
-      color: DEFAULT_COLORS[i],
+      name: isBus && busMeta ? busMeta.name : nameFor(bank.kind, n, i),
+      color: defaultColorFor(bank.kind, n, i),
       paths: pathsFor(bank.kind, n),
       hasPan: bank.kind !== "dca",
       faderNorm: dB.toFader(DEFAULT_DB[i]),
@@ -367,7 +400,14 @@ CueDesk.Mixer = (function () {
       lifeUnsubs.push(
         OSC.on(m.paths.name, function (v) {
           const name = String(v === null || v === undefined ? "" : v).trim().slice(0, 12);
-          if (!name || name === m.name) return;
+          if (!name) return;
+          if (m.kind === "bus") {
+            // El selector de bus es la fuente de verdad: aplica en selector + tira
+            const t = targetById("b" + m.n);
+            if (name !== t.name) applyBusName(t, name, false);
+            return;
+          }
+          if (name === m.name) return;
           m.name = name;
           const el = liveStrip(m);
           if (!el) return;
@@ -379,9 +419,13 @@ CueDesk.Mixer = (function () {
     if (m.paths.color) {
       lifeUnsubs.push(
         OSC.on(m.paths.color, function (v) {
-          // X32 config/color: {OFF:0, RD:1, GN:2, YE:3, …}
-          const map = { 1: "red", 2: "green", 3: "yellow" };
-          const next = map[parseInt(v, 10)];
+          if (m.kind === "bus") {
+            // El selector de bus es la fuente de verdad
+            setBusColor(m.n, COLOR_FROM_ENUM[parseInt(v, 10)]);
+            return;
+          }
+          // X32 config/color: {OFF:0, RD:1, GN:2, YE:3, BL:4, MG:5, CY:6, WH:7}
+          const next = COLOR_FROM_ENUM[parseInt(v, 10)];
           if (!next || next === m.color) return;
           m.color = next;
           const el = liveStrip(m);
@@ -389,6 +433,7 @@ CueDesk.Mixer = (function () {
             const btn = el.querySelector('[data-role="color"]');
             if (btn) btn.className = "strip__color is-" + next;
           }
+          highlightPaletteSwatch();
         })
       );
     }
@@ -646,19 +691,23 @@ CueDesk.Mixer = (function () {
       notifySoloChange();
     });
 
-    /* Color configurable: verde → rojo → amarillo */
+    /* Color configurable: paleta X32 completa (8 colores). En buses usa el ciclo
+       del selector (fuente de verdad); el resto cicla el enum completo. */
     const colorBtn = section.querySelector('[data-role="color"]');
     colorBtn.addEventListener("click", function () {
-      const idx = COLOR_CYCLE.indexOf(m.color);
-      m.color = COLOR_CYCLE[(idx + 1) % COLOR_CYCLE.length];
-      colorBtn.className = "strip__color is-" + m.color;
-      OSC.send(m.paths.color, COLOR_ENUM[m.color], "i", { commit: true });
+      cycleStripColor(m);
     });
 
     /* Etiqueta editable */
     const nameInput = section.querySelector('[data-role="name"]');
     const initialName = m.name;
     nameInput.addEventListener("change", commitName);
+    nameInput.addEventListener("focus", function () {
+      openChPalette(nameInput, m);
+    });
+    nameInput.addEventListener("blur", function () {
+      closeChPalette();
+    });
     nameInput.addEventListener("keydown", function (e) {
       if (e.key === "Enter") nameInput.blur();
       else if (e.key === "Escape") {
@@ -674,6 +723,7 @@ CueDesk.Mixer = (function () {
       }
       m.name = v;
       nameInput.value = v;
+      if (m.kind === "bus") applyBusName(targetById("b" + m.n), v, false);
       OSC.send(m.paths.name, v, "s", { commit: true });
     }
 
@@ -767,6 +817,7 @@ CueDesk.Mixer = (function () {
   /* --------------------------------------------------------------- rack */
 
   function renderRack() {
+    closeChPalette();
     Controls.destroyAll(rack);
 
     const list = [];
@@ -819,14 +870,33 @@ CueDesk.Mixer = (function () {
     cell.style.setProperty("--c", colorHex(c));
   }
 
+  /** Fuente de verdad del color de un bus: selector, tira del banco Bus Mtx y
+      localStorage. No envía OSC (los llamadores deciden cuándo). */
+  function setBusColor(n, color) {
+    const t = targetById("b" + n);
+    if (!t || t.kind !== "bus" || !color || !COLOR_HEX[color]) return;
+    t.color = color;
+    saveBusColor(n, color);
+    refreshBusColor(t);
+    if (t.id === masterTarget) applyMasterColor();
+    const m = store.get("bus:" + n);
+    if (m) {
+      m.color = color;
+      const el = liveStrip(m);
+      if (el) {
+        const btn = el.querySelector('[data-role="color"]');
+        if (btn) btn.className = "strip__color is-" + color;
+      }
+    }
+    highlightPaletteSwatch();
+  }
+
   function cycleTargetColor(t) {
     if (t.kind !== "bus") return;
     const idx = BUS_COLOR_CYCLE.indexOf(targetColor(t));
-    t.color = BUS_COLOR_CYCLE[(idx + 1) % BUS_COLOR_CYCLE.length];
-    saveBusColor(t.n, t.color);
-    refreshBusColor(t);
-    if (t.id === masterTarget) applyMasterColor();
-    if (t.paths.color) OSC.send(t.paths.color, COLOR_ENUM[t.color], "i", { commit: true });
+    const next = BUS_COLOR_CYCLE[(idx + 1) % BUS_COLOR_CYCLE.length];
+    setBusColor(t.n, next);
+    if (t.paths.color) OSC.send(t.paths.color, COLOR_ENUM[next], "i", { commit: true });
   }
 
   function buildBusPicker() {
@@ -978,6 +1048,18 @@ CueDesk.Mixer = (function () {
     refreshBusCell(t);
     if (t.id === masterTarget) updateMasterLabel();
     if (broadcast && changed && t.paths.name) OSC.send(t.paths.name, name, "s", { commit: true });
+    if (t.kind === "bus") {
+      // La tira del banco Bus Mtx comparte el nombre
+      const m = store.get("bus:" + t.n);
+      if (m) {
+        m.name = name;
+        const el = liveStrip(m);
+        if (el) {
+          const input = el.querySelector('[data-role="name"]');
+          if (input && document.activeElement !== input) input.value = name;
+        }
+      }
+    }
   }
 
   function refreshBusCell(t) {
@@ -1055,6 +1137,135 @@ CueDesk.Mixer = (function () {
     closeBusPicker();
   }
 
+  /* --------------------------------------------------- color de canal --- */
+  /* Aplica el color a una tira (canal/aux/fx/dca): modelo, barra, paleta y
+     persistencia. No envía OSC (los llamadores deciden). */
+  function applyStripColor(m, color) {
+    if (!color || !COLOR_HEX[color] || color === m.color) return;
+    m.color = color;
+    const el = liveStrip(m);
+    if (el) {
+      const btn = el.querySelector('[data-role="color"]');
+      if (btn) btn.className = "strip__color is-" + color;
+    }
+    saveChColor(m.kind + ":" + m.n, color);
+    highlightPaletteSwatch();
+  }
+
+  /* Ciclo de la barra de color: en buses sigue al selector; el resto recorre
+     los 8 colores del enum X32 (OFF → RD → GN → YE → BL → MG → CY → WH). */
+  function cycleStripColor(m) {
+    if (m.kind === "bus") {
+      const t = targetById("b" + m.n);
+      const idx = BUS_COLOR_CYCLE.indexOf(targetColor(t));
+      const next = BUS_COLOR_CYCLE[(idx + 1) % BUS_COLOR_CYCLE.length];
+      setBusColor(m.n, next);
+      OSC.send(m.paths.color, COLOR_ENUM[next], "i", { commit: true });
+      return;
+    }
+    const idx = CH_COLOR_CYCLE.indexOf(m.color);
+    const next = CH_COLOR_CYCLE[(idx + 1) % CH_COLOR_CYCLE.length];
+    applyStripColor(m, next);
+    OSC.send(m.paths.color, COLOR_ENUM[next], "i", { commit: true });
+  }
+
+  /* Paleta rápida de 8 colores: se abre al editar el nombre de la tira (táctil
+     amigable; objetivo grande). Panel fijo en body → no lo recorta el overflow
+     del strip. */
+  let chPaletteEl = null;
+  let chPaletteModel = null; // tira a la que pertenece la paleta abierta
+  let chPaletteInput = null; // input de nombre asociado
+
+  function buildChPalette() {
+    if (chPaletteEl) return;
+    chPaletteEl = document.createElement("div");
+    chPaletteEl.className = "ch-palette";
+    chPaletteEl.setAttribute("role", "listbox");
+    chPaletteEl.setAttribute("aria-label", "Color del canal — paleta X32");
+    chPaletteEl.innerHTML = ["off", "red", "green", "yellow", "blue", "magenta", "cyan", "white"]
+      .map(function (c) {
+        return (
+          '<button type="button" class="ch-palette__swatch is-' + c + '" role="option" data-color="' + c + '" ' +
+            'style="--c:' + colorHex(c) + '" aria-label="Color ' + c + '"></button>'
+        );
+      })
+      .join("");
+    document.body.appendChild(chPaletteEl);
+    chPaletteEl.addEventListener("click", function (e) {
+      const sw = e.target.closest(".ch-palette__swatch");
+      if (!sw || !chPaletteModel) return;
+      const m = chPaletteModel;
+      const color = sw.dataset.color;
+      // pointerdown hace preventDefault: el input conserva el foco y la edición
+      // del nombre continúa tras elegir color.
+      if (m.kind === "bus") setBusColor(m.n, color);
+      else applyStripColor(m, color);
+      OSC.send(m.paths.color, COLOR_ENUM[color], "i", { commit: true });
+    });
+    chPaletteEl.addEventListener("pointerdown", function (e) {
+      if (e.target.closest(".ch-palette__swatch")) e.preventDefault();
+    });
+  }
+
+  function highlightPaletteSwatch() {
+    if (!chPaletteEl || !chPaletteModel) return;
+    chPaletteEl.querySelectorAll(".ch-palette__swatch").forEach(function (b) {
+      b.classList.toggle("is-current", b.dataset.color === chPaletteModel.color);
+    });
+  }
+
+  function placeChPalette() {
+    if (!chPaletteEl || !chPaletteInput) return;
+    const r = chPaletteInput.getBoundingClientRect();
+    const pr = chPaletteEl.getBoundingClientRect();
+    let left = r.left;
+    let top = r.bottom + 6;
+    if (left + pr.width > window.innerWidth - 8)
+      left = Math.max(8, window.innerWidth - 8 - pr.width);
+    if (top + pr.height > window.innerHeight - 8) {
+      const above = r.top - 6 - pr.height;
+      top = above >= 8 ? above : Math.max(8, window.innerHeight - 8 - pr.height);
+    }
+    chPaletteEl.style.left = left + "px";
+    chPaletteEl.style.top = top + "px";
+  }
+
+  function openChPalette(input, m) {
+    buildChPalette();
+    chPaletteModel = m;
+    chPaletteInput = input;
+    chPaletteEl.classList.add("is-open");
+    highlightPaletteSwatch();
+    placeChPalette();
+    document.addEventListener("pointerdown", onChPaletteDocPointerDown, true);
+    document.addEventListener("keydown", onChPaletteDocKeyDown, true);
+    window.addEventListener("resize", placeChPalette);
+    window.addEventListener("scroll", placeChPalette, true);
+  }
+
+  function closeChPalette() {
+    if (!chPaletteEl) return;
+    chPaletteEl.classList.remove("is-open");
+    chPaletteModel = null;
+    chPaletteInput = null;
+    document.removeEventListener("pointerdown", onChPaletteDocPointerDown, true);
+    document.removeEventListener("keydown", onChPaletteDocKeyDown, true);
+    window.removeEventListener("resize", placeChPalette);
+    window.removeEventListener("scroll", placeChPalette, true);
+  }
+
+  function onChPaletteDocPointerDown(e) {
+    if (chPaletteEl && chPaletteEl.contains(e.target)) return;
+    if (chPaletteInput && (chPaletteInput === e.target || chPaletteInput.contains(e.target))) return;
+    closeChPalette();
+  }
+
+  function onChPaletteDocKeyDown(e) {
+    if (e.key !== "Escape") return;
+    e.stopPropagation();
+    closeChPalette();
+  }
+
   function selectTarget(id) {
     const t = targetById(id);
     if (!t || t.id !== id) return;
@@ -1126,12 +1337,7 @@ CueDesk.Mixer = (function () {
       if (t.kind === "bus" && p.color) {
         lifeUnsubs.push(
           OSC.on(p.color, function (v) {
-            const next = COLOR_FROM_ENUM[parseInt(v, 10)];
-            if (!next || next === t.color) return;
-            t.color = next;
-            saveBusColor(t.n, next);
-            refreshBusColor(t);
-            if (t.id === masterTarget) applyMasterColor();
+            setBusColor(t.n, COLOR_FROM_ENUM[parseInt(v, 10)]);
           })
         );
       }

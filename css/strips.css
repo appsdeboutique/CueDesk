@@ -76,6 +76,33 @@
   box-shadow: 0 0 9px rgba(245, 197, 24, 0.6);
 }
 
+/* Paleta completa X32 (usada por las tiras de bus): blanco, azul, magenta,
+   cian y off siguen los mismos colores que el selector de BUS */
+.strip__color.is-white {
+  background: #f4f4f6;
+  box-shadow: 0 0 9px rgba(244, 244, 246, 0.5);
+}
+
+.strip__color.is-blue {
+  background: #2f6bff;
+  box-shadow: 0 0 9px rgba(47, 107, 255, 0.65);
+}
+
+.strip__color.is-magenta {
+  background: #ff3bd4;
+  box-shadow: 0 0 9px rgba(255, 59, 212, 0.6);
+}
+
+.strip__color.is-cyan {
+  background: #00c0ce;
+  box-shadow: 0 0 9px rgba(0, 192, 206, 0.65);
+}
+
+.strip__color.is-off {
+  background: #3a3a44;
+  box-shadow: none;
+}
+
 .strip__meta {
   display: flex;
   align-items: center;
@@ -628,9 +655,9 @@
 .strip--master {
   /* Igual ancho que los canales (el rack reparte 9 columnas); el master tiene
      una columna extra de vúmetro, compensada con escalas algo más estrechas. */
-  /* Capa cian #00C0CE al 25 % sobre el degradado base */
+  /* Capa cian #00C0CE al 15 % sobre el degradado base */
   background:
-    linear-gradient(0deg, rgba(0, 192, 206, 0.25), rgba(0, 192, 206, 0.25)),
+    linear-gradient(0deg, rgba(0, 192, 206, 0.15), rgba(0, 192, 206, 0.15)),
     linear-gradient(180deg, #1f1f26, #1a1a20);
   border-color: #2c2c36;
 }
@@ -847,4 +874,55 @@
   .strip__name {
     font-size: 9.5px;
   }
+}
+
+/* --------------------------------------------------------------------------
+   Paleta rápida de color de canal (X32): 8 colores {OFF,RD,GN,YE,BL,MG,CY,WH}.
+   Panel fijo en body (no lo recorta el overflow del strip); se abre al editar
+   el nombre de la tira; objetivo táctil amplio.
+   -------------------------------------------------------------------------- */
+
+.ch-palette {
+  position: fixed;
+  z-index: 70;
+  display: none;
+  flex-wrap: wrap;
+  gap: 6px;
+  width: 138px; /* 4 × 30px + 3 × 6px */
+  padding: 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.62);
+}
+
+.ch-palette.is-open {
+  display: flex;
+}
+
+.ch-palette__swatch {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.12);
+  background: var(--c, #6b6b78);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.55);
+  cursor: pointer;
+  transition: transform 0.1s, filter 0.1s, border-color 0.1s;
+}
+
+.ch-palette__swatch:hover {
+  filter: brightness(1.2);
+  transform: scale(1.08);
+}
+
+.ch-palette__swatch.is-off {
+  background:
+    linear-gradient(to top right, transparent calc(50% - 1px), #565664 50%, transparent calc(50% + 1px)),
+    #26262d;
+}
+
+.ch-palette__swatch.is-current {
+  border-color: var(--cyan-bright);
+  box-shadow: 0 0 0 2px rgba(0, 192, 206, 0.35), 0 2px 5px rgba(0, 0, 0, 0.55);
 }

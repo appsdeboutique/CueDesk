@@ -3,6 +3,12 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 Versionado semántico (SemVer): `MAJOR.MINOR.PATCH`.
 
+## [1.0.15] — 2026-10-09
+
+### Changed
+- Selector de color de los canales: paleta de 8 colores al editar el nombre (mayor superficie táctil), ciclo completo X32 por la barra y persistencia en localStorage (cuedesk.ch.colors).
+- Color de los buses y de las tiras de bus unificados con la fuente de verdad; la capa cian del master bus pasa de 0.25 a 0.15.
+
 ## [1.0.14] — 2026-10-09
 
 ### Added
