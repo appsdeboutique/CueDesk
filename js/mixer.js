@@ -28,7 +28,8 @@ CueDesk.Mixer = (function () {
     aux: { kind: "aux", label: "AUX", from: 1 },
     fx: { kind: "fx", label: "FX", from: 1 },
     dca: { kind: "dca", label: "DCA", from: 1 },
-    bus: { kind: "bus", label: "Bus Mtx", from: 1 },
+    bus: { kind: "bus", label: "Buses", from: 1, count: 16 },
+    mtx: { kind: "mtx", label: "Matrix", from: 1, count: 6 },
   };
 
   // Ciclo de la barra de color del canal: orden del enum X32 config/color (0–7),
@@ -277,6 +278,15 @@ CueDesk.Mixer = (function () {
           color: "/bus/" + id + "/config/color",
           solo: "/-stat/solosw/" + (48 + n),  // bus ids 48…63 (+1)
         };
+      case "mtx":
+        return {
+          fader: "/mtx/" + id + "/mix/fader",
+          on: "/mtx/" + id + "/mix/on",
+          pan: "/mtx/" + id + "/mix/pan",
+          name: "/mtx/" + id + "/config/name",
+          color: "/mtx/" + id + "/config/color",
+          solo: "/-stat/solosw/" + (64 + n),  // matrix ids 64…69 (+1)
+        };
       case "dca":
         return {
           fader: "/dca/" + n + "/fader",
@@ -299,6 +309,7 @@ CueDesk.Mixer = (function () {
       case "aux": return "AUX " + p2(n);
       case "fx": return FX_NAMES[i];
       case "bus": return "BUS " + p2(n);
+      case "mtx": return "MTX " + p2(n);
       case "dca": return "DCA " + n;
     }
     return p2(n);
@@ -821,10 +832,36 @@ CueDesk.Mixer = (function () {
     Controls.destroyAll(rack);
 
     const list = [];
-    for (let i = 0; i < 8; i++) list.push(modelFor(currentBank, i));
+    const bank = BANKS[currentBank];
+    const stripCount = bank.count || 8;
+    for (let i = 0; i < stripCount; i++) list.push(modelFor(currentBank, i));
     activeStrips = list;
 
-    rack.innerHTML = list.map(stripHTML).join("");
+    const paged = currentBank === "bus";
+    rack.parentElement.classList.toggle("rack--paged", paged);
+    if (paged) {
+      rack.setAttribute("role", "region");
+      rack.setAttribute("aria-label", "Buses 1-16, desplazamiento horizontal en bloques de 8");
+      rack.setAttribute("tabindex", "0");
+      const pages = [];
+      for (let start = 0; start < list.length; start += 8) {
+        pages.push(
+          '<div class="channel-page" role="group" aria-label="Buses ' +
+            (start + 1) +
+            " a " +
+            Math.min(start + 8, list.length) +
+            '">' +
+            list.slice(start, start + 8).map(stripHTML).join("") +
+            "</div>"
+        );
+      }
+      rack.innerHTML = pages.join("");
+    } else {
+      rack.removeAttribute("role");
+      rack.removeAttribute("aria-label");
+      rack.removeAttribute("tabindex");
+      rack.innerHTML = list.map(stripHTML).join("");
+    }
     Meters.mount(rack);
 
     const sections = rack.querySelectorAll(".strip");
@@ -870,7 +907,7 @@ CueDesk.Mixer = (function () {
     cell.style.setProperty("--c", colorHex(c));
   }
 
-  /** Fuente de verdad del color de un bus: selector, tira del banco Bus Mtx y
+  /** Fuente de verdad del color de un bus: selector, tira del banco Buses y
       localStorage. No envía OSC (los llamadores deciden cuándo). */
   function setBusColor(n, color) {
     const t = targetById("b" + n);
@@ -1049,7 +1086,7 @@ CueDesk.Mixer = (function () {
     if (t.id === masterTarget) updateMasterLabel();
     if (broadcast && changed && t.paths.name) OSC.send(t.paths.name, name, "s", { commit: true });
     if (t.kind === "bus") {
-      // La tira del banco Bus Mtx comparte el nombre
+      // La tira del banco Buses comparte el nombre
       const m = store.get("bus:" + t.n);
       if (m) {
         m.name = name;

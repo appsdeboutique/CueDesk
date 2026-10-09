@@ -21,6 +21,31 @@
   display: contents;
 }
 
+.rack--paged {
+  display: grid;
+  grid-template-columns: repeat(9, minmax(0, 1fr));
+}
+
+.rack--paged .channels {
+  display: flex;
+  grid-column: span 8;
+  min-width: 0;
+  gap: var(--gap);
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+}
+
+.channel-page {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  flex: 0 0 100%;
+  gap: var(--gap);
+  min-width: 0;
+  scroll-snap-align: start;
+}
+
 .strip {
   position: relative;
   display: flex;

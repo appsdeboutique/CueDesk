@@ -211,7 +211,8 @@
             <button type="button" class="bank" data-bank="aux">AUX</button>
             <button type="button" class="bank" data-bank="fx">FX</button>
             <button type="button" class="bank" data-bank="dca">DCA</button>
-            <button type="button" class="bank" data-bank="bus">Bus Mtx</button>
+            <button type="button" class="bank" data-bank="bus">Buses</button>
+            <button type="button" class="bank" data-bank="mtx">Matrix</button>
           </div>
           <button type="button" class="bank bank--gain" data-action="gain"
                   aria-pressed="false" data-state-value="0"
@@ -220,7 +221,7 @@
           </button>
         </aside>
 
-        <!-- Rack: 8 tiras de canal + master -->
+        <!-- Rack: 8 tiras visibles + master; Buses se desplaza en dos bloques de 8 -->
         <div class="rack">
           <div class="channels" id="channel-rack"><!-- inyectado por mixer.js --></div>
 
