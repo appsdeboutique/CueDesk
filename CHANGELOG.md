@@ -3,6 +3,17 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 Versionado semántico (SemVer): `MAJOR.MINOR.PATCH`.
 
+## [1.0.13] — 2026-10-09
+
+### Changed
+- **Selector de bus del master**: sale de la cabecera (se elimina el `.strip__display` del master) y pasa a ser la **primera fila del cuerpo de la tarjeta** (hijo directo de `.strip--master`), sin fondo negro detrás.
+- **Estilo de botón ámbar**: borde y texto en `--gold` (`#ffc12c`), `border-radius: 6px`, `font-weight: 800` y fondo transparente (al estilo de los botones M/S), con un **triángulo relleno ▼** a la derecha como indicación de selector.
+- **Altura 26 → 45 px** (+50 %) y ancho al de la tarjeta con 8 px de margen lateral.
+- Para no desplazar el núcleo, la fila de la etiqueta del master cede 1 px (**38 → 37**): `44 + 38 = 45 + 37`; fader y vúmetros del master siguen alineados con los 8 canales.
+
+### Verified
+- 1296×886: master sin `.strip__display` y con el `<select>` como primer hijo; botón de 45 px en ámbar `rgb(255,193,44)` con triángulo ▼; los 9 faders a la misma Y (313) y los 9 núcleos en 309; el selector sigue cambiando LR/M-C (etiqueta `LR`/`M/C` y ruta `/main/st|m/mix/fader`); sin scroll X/Y; 0 errores (salvo WebSocket sin X32).
+
 ## [1.0.12] — 2026-10-09
 
 ### Changed
