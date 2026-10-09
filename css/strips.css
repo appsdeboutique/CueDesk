@@ -401,13 +401,13 @@
   box-shadow: 0 0 8px rgba(255, 193, 44, 0.55);
 }
 
-/* Pomo: pill blanca y sin marca, horizontal (22×12 px) y dentro del carril */
+/* Pomo: pill blanca y sin marca, horizontal (26×12 px = ancho del relleno) */
 .fader__cap {
   position: absolute;
   left: 50%;
   bottom: calc(var(--v, 0) * 100%);
   transform: translate(-50%, 50%);
-  width: 22px;
+  width: 26px;
   height: 12px;
   border-radius: 999px;
   background: linear-gradient(

@@ -3,6 +3,14 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 Versionado semántico (SemVer): `MAJOR.MINOR.PATCH`.
 
+## [1.0.8] — 2026-10-09
+
+### Changed
+- **Pomo del fader**: anchura 22 → 26 px para igualar el **ancho del relleno** (todo el carril), manteniendo la forma horizontal (26 × 12 px) y el centrado.
+
+### Verified
+- Navegador: pomo y relleno a 26 px (coinciden); pomo centrado dentro del carril; sin scroll X.
+
 ## [1.0.7] — 2026-10-09
 
 ### Changed
