@@ -20,6 +20,8 @@ CueDesk.Meters = (function () {
   /** Escala impresa a los lados: recorrido de -∞ (base) a 0 dB (tope). */
   const SCALE = [
     { db: 0, label: "0" },
+    { db: -5, label: "-5" },
+    { db: -10, label: "-10" },
     { db: -20, label: "-20" },
     { db: -40, label: "-40" },
     { db: -60, label: "-60" },

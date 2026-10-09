@@ -355,7 +355,10 @@ CueDesk.Mixer = (function () {
      etiqueta en la escala del vúmetro. */
   const FADER_SCALE_MIX = [
     { db: 10, label: "+10" },
+    { db: 5, label: "+5" },
     { db: 0, label: "0" },
+    { db: -5, label: "-5" },
+    { db: -10, label: "-10" },
     { db: -20, label: "-20" },
     { db: -40, label: "-40" },
     { db: -60, label: "-60" },
@@ -675,6 +678,8 @@ CueDesk.Mixer = (function () {
 
   function wireMaster() {
     const faderEl = masterEl.querySelector('[data-role="fader"]');
+    const scaleEl = masterEl.querySelector(".fader__scale");
+    if (scaleEl) scaleEl.innerHTML = faderScaleHTML(null);
     masterSlider = Controls.mount(faderEl, {
       path: masterPaths(masterTarget).fader,
       type: "f",

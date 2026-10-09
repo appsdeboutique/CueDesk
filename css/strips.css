@@ -15,11 +15,10 @@
   overflow-y: hidden;
 }
 
+/* display: contents hace que las 8 tiras y el master sean hijos directos del
+   rack: el reparto es idéntico (9 columnas iguales) y con gaps uniformes. */
 .channels {
-  display: flex;
-  gap: 8px;
-  flex: 1;
-  min-width: 0;
+  display: contents;
 }
 
 .strip {
@@ -250,7 +249,7 @@
   transform: translateY(50%);
   font-size: 8.5px;
   line-height: 1;
-  color: var(--text-faint);
+  color: var(--text);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -590,7 +589,7 @@
   transform: translateY(50%);
   font-size: 8.5px;
   line-height: 1;
-  color: var(--text-faint);
+  color: var(--text);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -603,12 +602,19 @@
    -------------------------------------------------------------------------- */
 
 .strip--master {
-  flex: 0 0 clamp(120px, 10vw, 152px);
+  /* Igual ancho que los canales (el rack reparte 9 columnas); el master tiene
+     una columna extra de vúmetro, compensada con escalas algo más estrechas. */
   /* Capa cian #00C0CE al 25 % sobre el degradado base */
   background:
     linear-gradient(0deg, rgba(0, 192, 206, 0.25), rgba(0, 192, 206, 0.25)),
     linear-gradient(180deg, #1f1f26, #1a1a20);
   border-color: #2c2c36;
+}
+
+/* El master tiene dos columnas de vúmetro (una más que un canal): se estrechan
+   un poco sus escalas para ceder ancho a la columna del fader y su escala. */
+.strip--master .meter-scale {
+  width: 14px;
 }
 
 .strip--master .strip__display {

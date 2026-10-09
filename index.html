@@ -239,9 +239,10 @@
 
             <!-- CONTENEDOR FLEX PARA UNIR VÚMETROS Y FADER EN PARALELO -->
             <div class="strip__core">
-              <div class="fader" data-slider="vertical" data-role="fader"
+              <div class="fader fader--scale" data-slider="vertical" data-role="fader"
                    data-osc-path="/main/st/mix/fader" data-osc-address="/main/st/mix/fader"
                    data-osc-type="f" aria-label="Nivel master">
+                <div class="fader__scale" aria-hidden="true"></div>
                 <div class="fader__track">
                   <div class="fader__travel"><span class="fader__cap"></span></div>
                 </div>
@@ -352,7 +353,7 @@
     <!-- ================================ FOOTER ============================ -->
     <footer class="footer">
       <p>2026 StegeNet Systems. All rights reserved.</p>
-      <span class="footer__version" title="CueDesk · versión de la interfaz">v1.0.9</span>
+      <span class="footer__version" title="CueDesk · versión de la interfaz">v1.0.10</span>
     </footer>
   </div>
 

@@ -3,6 +3,17 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 Versionado semántico (SemVer): `MAJOR.MINOR.PATCH`.
 
+## [1.0.10] — 2026-10-09
+
+### Changed
+- **Escalas (fader y vúmetros)**: el texto pasa de `--text-faint` a **blanco** (`--text`, `#ececf1`).
+- **Escala del fader de mezcla**: se añaden las marcas **+5, -5 y -10** (antes `+10 / 0 / -20 / -40 / -60 / -∞`).
+- **Escala de los vúmetros**: se añaden **-5 y -10** (antes `0 / -20 / -40 / -60 / -∞`).
+- **Fader master**: el strip reparte ahora el **mismo ancho que los canales** (9 columnas iguales: `display: contents` en `.channels` y el master hereda `flex: 1 1 0`), y se le **añade escala** como a los canales (mismas marcas). Para compensar su columna extra de vúmetro, sus escalas de vúmetro se estrechan (20 → 14 px).
+
+### Verified
+- 1296×886: 9 tiras a ~120.9 px; escalas en blanco `rgb(236, 236, 241)`; fader con `+5 / -5 / -10` y el master con su escala; las marcas de 0 dB del fader y del vúmetro coinciden (ΔY = 0); sin solape entre escalas; sin scroll X; 0 errores (salvo WebSocket sin X32). El modo GAIN conserva su escala (headamp/trim) en blanco y el relleno dorado.
+
 ## [1.0.9] — 2026-10-09
 
 ### Changed
