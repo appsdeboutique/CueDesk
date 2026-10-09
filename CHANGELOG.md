@@ -3,6 +3,17 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 Versionado semántico (SemVer): `MAJOR.MINOR.PATCH`.
 
+## [1.0.6] — 2026-10-09
+
+### Changed
+- **Fader**: el pomo pasa a ser una **pill blanca sin marca** (`border-radius: 999px`, se elimina la línea indicadora `::after`) y queda **dentro del ancho del carril** (pomo y carril a 16 px, centrados).
+- **Carril del fader +15 %**: ancho 14 → 16 px (y ranura interior 4 → 5 px).
+- **Parte recorrida del fader pintada**: del fondo del carril al centro del pomo, en cian `#00C0CE` para todas las tiras de canal y el master, y en ámbar `#FFC12C` en el modo GAIN.
+- **Escala del fader**: se ajusta el margen derecho (29 → 23 px) a la nueva geometría del carril/pomo (2 px de aire).
+
+### Verified
+- Navegador: carril 16 px, pomo 16×22 px `border-radius: 999px`, `::after` = `none`; recorrido computado `rgb(0, 192, 206)` (canal y master) y `rgb(255, 193, 44)` en GAIN; 0 dB de GAIN en 1/6 (24/144); 2 px entre escala y carril; sin scroll X.
+
 ## [1.0.5] — 2026-10-09
 
 ### Changed

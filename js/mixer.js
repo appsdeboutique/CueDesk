@@ -441,7 +441,7 @@ CueDesk.Mixer = (function () {
         (m.hasPan ? panHTML(m) : '<div class="strip__gap" aria-hidden="true"></div>') +
         // Núcleo: fader a la izquierda, vúmetro mono a la derecha (canal mono)
         '<div class="strip__core">' +
-          '<div class="fader fader--scale" data-slider="vertical" data-role="fader" ' +
+          '<div class="fader fader--scale' + (isGain ? " is-gain" : "") + '" data-slider="vertical" data-role="fader" ' +
             'data-osc-path="' + faderPath + '" data-osc-address="' + faderPath + '" data-osc-type="f" ' +
             'aria-label="' + (gs ? gs.label + " " : "Nivel ") + escapeHtml(m.name) + '">' +
             '<div class="fader__scale' + (isGain ? " is-gain" : "") + '" aria-hidden="true">' +

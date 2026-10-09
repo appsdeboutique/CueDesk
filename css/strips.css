@@ -353,7 +353,7 @@
 
 .fader__track {
   position: relative;
-  width: 14px;
+  width: 16px; /* carril +15 % (14 → 16) */
   height: 100%;
   border-radius: 8px;
   background: linear-gradient(180deg, #07070a, #101015);
@@ -367,7 +367,7 @@
   left: 50%;
   top: 7px;
   bottom: 7px;
-  width: 4px;
+  width: 5px; /* ranura +15 % (4 → 5) */
   transform: translateX(-50%);
   border-radius: 3px;
   background: #040405;
@@ -382,42 +382,53 @@
   bottom: 13px;
 }
 
+/* Parte ya recorrida: del fondo del carril al centro del pomo.
+   Cian en canales y master; dorado en el modo GAIN. */
+.fader__travel::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: calc(var(--v, 0) * 100%);
+  border-radius: 8px;
+  background: var(--cyan-bright);
+  box-shadow: 0 0 8px rgba(0, 192, 206, 0.55);
+}
+
+.fader.is-gain .fader__travel::before {
+  background: var(--gold);
+  box-shadow: 0 0 8px rgba(255, 193, 44, 0.55);
+}
+
+/* Pomo: pill blanca y sin marca, dentro del ancho del carril (16 px) */
 .fader__cap {
   position: absolute;
   left: 50%;
   bottom: calc(var(--v, 0) * 100%);
   transform: translate(-50%, 50%);
-  width: 46px;
-  height: 26px;
-  border-radius: 5px;
+  width: 16px;
+  height: 22px;
+  border-radius: 999px;
   background: linear-gradient(
     180deg,
     var(--fader-cap-hi) 0%,
     var(--fader-cap) 45%,
     var(--fader-cap-lo) 100%
   );
-  box-shadow: 0 5px 9px rgba(0, 0, 0, 0.65), inset 0 1px 0 #ffffff,
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.65), inset 0 1px 0 #ffffff,
     inset 0 -1px 0 rgba(0, 0, 0, 0.18);
   pointer-events: none;
 }
 
-/* Línea indicadora de posición */
-.fader__cap::after {
-  content: "";
-  position: absolute;
-  left: 5px;
-  right: 5px;
-  top: 50%;
-  height: 2px;
-  transform: translateY(-50%);
-  border-radius: 2px;
-  background: #37373f;
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.75);
-}
-
 .fader.is-dragging .fader__cap {
   box-shadow: 0 0 0 1.5px var(--cyan-bright), 0 0 18px rgba(0, 192, 206, 0.5),
-    0 5px 9px rgba(0, 0, 0, 0.65);
+    0 3px 6px rgba(0, 0, 0, 0.65);
+}
+
+.fader.is-gain.is-dragging .fader__cap {
+  box-shadow: 0 0 0 1.5px var(--gold), 0 0 18px rgba(255, 193, 44, 0.5),
+    0 3px 6px rgba(0, 0, 0, 0.65);
 }
 
 /* --------------------------------------------------------------------------
@@ -548,21 +559,16 @@
   flex: 1 1 auto;
 }
 
-.strip__core .fader__cap {
-  width: 30px;
-}
-
 /* --------------------------------------------------------------------------
    Escala impresa del fader (sólo tiras de canal)
    -------------------------------------------------------------------------- */
 
-/* El pomo de 30 px taparía una escala centrada: en las tiras de canal el
-   recorrido se desplaza al borde derecho (padding-right 5 px — el pomo queda
-   a 5 px del hueco de 8 px hacia los vúmetros) y la escala ocupa la banda
-   izquierda. Las etiquetas usan el mismo sistema de --p que la escala del
-   vúmetro y el mismo recorrido (top 25 = padding 12 + tope 13; bottom 21 =
-   8 + 13), así la marca 0 dB de ambas cae a la Y exacta: toFader(0) = 0.75
-   = cima de la columna del vúmetro (75 % del carril). */
+/* El carril de 16 px se desplaza al borde derecho (padding-right 5 px, a 5 px
+   del hueco de 8 px hacia los vúmetros) y la escala ocupa la banda izquierda.
+   Las etiquetas usan el mismo sistema de --p que la escala del vúmetro y el
+   mismo recorrido (top 25 = padding 12 + tope 13; bottom 21 = 8 + 13), así la
+   marca 0 dB de ambas cae a la Y exacta: toFader(0) = 0.75 = cima de la
+   columna del vúmetro (75 % del carril). */
 .strip__core .fader--scale {
   justify-content: flex-end;
   padding: 12px 5px 8px 0;
@@ -571,7 +577,7 @@
 .fader__scale {
   position: absolute;
   left: 0;
-  right: 29px; /* borde izquierdo del pomo (W−27) + 2 px de aire */
+  right: 23px; /* borde izquierdo del carril/pomo (5 + 16) + 2 px de aire */
   top: 25px;
   bottom: 21px;
   pointer-events: none; /* el arrastre del fader sigue siendo del carril entero */
@@ -724,10 +730,6 @@
      mantiene sus dos escalas y sus dos columnas. */
   .strip:not(.strip--master) .strip__core .meter-scale[data-side="l"] {
     display: none;
-  }
-
-  .fader__cap {
-    width: 40px;
   }
 
   .strip__name {
