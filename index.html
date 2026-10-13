@@ -195,6 +195,18 @@
       </div>
     </div>
 
+    <!-- Subpestañas de Setup: visibles sólo con la vista Setup activa -->
+    <div class="viewbar setupbar" data-view-panel="setup" hidden>
+      <nav class="viewbar-tabs" role="tablist" aria-label="Setup">
+        <button type="button" class="tab is-active" role="tab" aria-selected="true" data-setup-tab="connection">Connection</button>
+        <button type="button" class="tab" role="tab" aria-selected="false" data-setup-tab="mixer">Mixer</button>
+        <button type="button" class="tab" role="tab" aria-selected="false" data-setup-tab="gui">GUI Prefs</button>
+        <button type="button" class="tab" role="tab" aria-selected="false" data-setup-tab="midi">Midi Control</button>
+        <button type="button" class="tab" role="tab" aria-selected="false" data-setup-tab="preamps">Preamps</button>
+        <button type="button" class="tab" role="tab" aria-selected="false" data-setup-tab="card">Card</button>
+      </nav>
+    </div>
+
     <!-- =============================== ESCENARIO =========================== -->
     <main class="stage">
 
@@ -312,19 +324,26 @@
       </section>
 
       <!-- ------------------------------ SETUP ----------------------------- -->
-      <section class="view view--empty" data-view-panel="setup" hidden>
-        <div class="ph">
-          <span class="ph__icon" aria-hidden="true">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="3.2" stroke="currentColor" stroke-width="1.8"/>
-              <path d="M12 4v2.2M12 17.8V20M4 12h2.2M17.8 12H20M6.3 6.3l1.6 1.6M16.1 16.1l1.6 1.6M17.7 6.3l-1.6 1.6M7.9 16.1l-1.6 1.6"
-                    stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-            </svg>
-          </span>
-          <h2>Setup</h2>
-          <p>Preferencias de la superficie FOH: estilo de vúmetros, paso de
-             <code>GAIN</code>, latencia del puente y endpoint OSC. Se expondrá
-             sobre <code>/config/…</code>.</p>
+      <section class="view view--setup" data-view-panel="setup" hidden>
+        <div class="setup__body">
+          <section class="setup__pane is-active" data-setup-pane="connection">
+            <div class="setup__grid" data-setup-render="connection"></div>
+          </section>
+          <section class="setup__pane" data-setup-pane="mixer" hidden>
+            <div class="setup__grid" data-setup-render="mixer"></div>
+          </section>
+          <section class="setup__pane" data-setup-pane="gui" hidden>
+            <div class="setup__grid" data-setup-render="gui"></div>
+          </section>
+          <section class="setup__pane" data-setup-pane="midi" hidden>
+            <div class="setup__grid" data-setup-render="midi"></div>
+          </section>
+          <section class="setup__pane" data-setup-pane="preamps" hidden>
+            <div class="setup__card setup__preamps" data-setup-render="preamps"></div>
+          </section>
+          <section class="setup__pane" data-setup-pane="card" hidden>
+            <div class="setup__grid" data-setup-render="card"></div>
+          </section>
         </div>
       </section>
 
@@ -348,7 +367,7 @@
     <!-- ================================ FOOTER ============================ -->
     <footer class="footer">
       <p>2026 StegeNet Systems. All rights reserved.</p>
-      <span class="footer__version" title="CueDesk · versión de la interfaz">v1.0.15</span>
+      <span class="footer__version" title="CueDesk · versión de la interfaz">v1.0.17</span>
     </footer>
   </div>
 

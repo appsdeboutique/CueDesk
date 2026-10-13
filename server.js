@@ -18,8 +18,88 @@
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
+const dgram = require("dgram");
 
 const ROOT = __dirname;
+
+const CONSOLE_IP_DEFAULT = "192.168.1.10";
+const CONSOLE_OSC_PORT = 10023;
+const IPV4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
+
+function parseOscArgs(buf) {
+  let i = 0;
+  const readStr = function () {
+    const start = i;
+    while (i < buf.length && buf[i] !== 0) i++;
+    const s = buf.toString("latin1", start, i);
+    i = (i + 4) & ~3;
+    return s;
+  };
+  readStr();
+  const tags = readStr();
+  const out = [];
+  if (!tags.startsWith(",")) return out;
+  for (const t of tags.slice(1)) {
+    if (t === "s") out.push(readStr());
+    else if (t === "i") { out.push(buf.readInt32BE(i)); i += 4; }
+    else if (t === "f") { out.push(buf.readFloatBE(i)); i += 4; }
+    else break;
+  }
+  return out;
+}
+
+function probeConsole(ip, timeoutMs) {
+  return new Promise(function (resolve) {
+    const sock = dgram.createSocket("udp4");
+    let done = false;
+    const finish = function (result) {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      try { sock.close(); } catch (_) {}
+      resolve(result);
+    };
+    const timer = setTimeout(function () {
+      finish({ found: false, ip: ip, reason: "sin respuesta" });
+    }, timeoutMs);
+    sock.on("error", function (err) {
+      finish({ found: false, ip: ip, reason: err.message });
+    });
+    sock.on("message", function (msg) {
+      let args = [];
+      try { args = parseOscArgs(msg); } catch (_) {}
+      finish({
+        found: true,
+        ip: ip,
+        model: typeof args[1] === "string" ? args[1] : null,
+        name: typeof args[2] === "string" ? args[2] : null,
+        version: typeof args[3] === "string" ? args[3] : null,
+        args: args,
+      });
+    });
+    // "/info" + type tag "," (notación OSC correcta, 8 + 4 bytes)
+    const packet = Buffer.from("/info\0\0\0,\0\0\0", "latin1");
+    sock.send(packet, CONSOLE_OSC_PORT, ip, function (err) {
+      if (err) finish({ found: false, ip: ip, reason: err.message });
+    });
+  });
+}
+
+function handleConsoleProbe(req, res) {
+  const query = new URLSearchParams((req.url || "").split("?")[1] || "");
+  const ip = query.get("ip") || CONSOLE_IP_DEFAULT;
+  const json = function (code, body) {
+    res.writeHead(code, {
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": "no-store",
+    });
+    res.end(JSON.stringify(body));
+  };
+  if (!IPV4.test(ip)) return json(400, { found: false, ip: ip, reason: "IP no válida" });
+  probeConsole(ip, 1500).then(function (result) {
+    json(200, result);
+  });
+}
 
 const argv = process.argv.slice(2);
 const argPort = argv.indexOf("--port");
@@ -51,6 +131,10 @@ const MIME = {
 
 const server = http.createServer((req, res) => {
   const urlPath = decodeURIComponent((req.url || "/").split("?")[0]);
+  if (urlPath === "/api/console") {
+    handleConsoleProbe(req, res);
+    return;
+  }
   const rel = urlPath === "/" ? "index.html" : urlPath.replace(/^[/\\]+/, "");
   const file = path.resolve(ROOT, rel);
 

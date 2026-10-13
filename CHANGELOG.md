@@ -3,13 +3,41 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 Versionado semántico (SemVer): `MAJOR.MINOR.PATCH`.
 
+## [1.0.17] — 2026-10-13
+
+### Added
+- **Pestaña Setup** entre Mixer y Routing, con barra de seis subpestañas (Connection, Mixer, GUI Prefs, Midi Control, Preamps, Card) bajo la barra de vistas, con la distribución de X32-Edit.
+- **Mixer**: todas las opciones de la pantalla de X32-Edit. Las que no tienen ruta OSC confirmada quedan deshabilitadas.
+- **GUI Prefs**: preferencias locales guardadas en `localStorage` (`cuedesk.setup.local`). Todavía no cambian el comportamiento de la app.
+- **Midi Control**: `/-prefs/remote/ioenable` como máscara de bits (MIDI In/Out, Card MIDI, Program change, Fader pos CC, Ch mute CC).
+- **Preamps**: bloques de 8 canales con botón 48V, fader vertical de ganancia (-12 … +60 dB) y escala. Los bloques AES50 quedan deshabilitados.
+- **Card**: sólo muestra sus opciones cuando `/-stat/xcardtype` es distinto de 0.
+- **Detección de consola**: endpoint `/api/console` en `server.js` (envía `/info` por UDP a 192.168.1.10:10023) y tarjeta de detección en Connection.
+
+### Changed
+- Confirmación antes de enviar cambios de reloj, sincronización, tarjeta y máscara MIDI.
+- Los valores de la consola se leen por suscripción OSC. No hay petición explícita al abrir Setup.
+- Brillo, contraste y LED de pantalla con los rangos de los headers de Maillot (10–90 y 0–100).
+
+### Fixed
+- Al pulsar una subpestaña de Setup se ocultaban todos los paneles: `initTabs` sólo toma las pestañas con `data-view`.
+- Con Setup activo, la barra de subpestañas ocupa su propia fila en la cuadrícula de `.app`.
+
+## [1.0.16] — 2026-10-09
+
+### Added
+- Banco **Matrix** con seis tiras y rutas OSC `/mtx/NN/…`.
+
+### Changed
+- El botón "Bus Mtx" se separa en **Buses** (16 buses en dos bloques horizontales de 8 tiras, con desplazamiento) y **Matrix**. El master queda fijo.
+
 ## [1.0.15] — 2026-10-09
 
 ### Changed
 - Selector de color de los canales: paleta de 8 colores al editar el nombre (mayor superficie táctil), ciclo completo X32 por la barra y persistencia en localStorage (cuedesk.ch.colors).
 - Color de los buses y de las tiras de bus unificados con la fuente de verdad; la capa cian del master bus pasa de 0.25 a 0.15.
 
-## [1.0.15] — 2026-10-13\n\n### Changed\n- Selector de color de los canales: paleta de 8 colores al editar el nombre, ciclo completo X32 por la barra y persistencia en localStorage (cuedesk.ch.colors).\n- Color de los buses y de las tiras de bus unificados; capa cian del master bus pasa de 0.25 a 0.15.\n\n## [1.0.14] — 2026-10-09
+## [1.0.14] — 2026-10-09
 
 ### Added
 - **Selector de BUS del master**: caja propia con cuadros generosos para **Main LR**, **M/C Mono** y **Bus 01–16** (18 destinos). Cada destino tiene su estado de fader/mute y sus rutas OSC (`/main/st|m/…` y `/bus/NN/…`).

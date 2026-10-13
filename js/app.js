@@ -168,8 +168,550 @@ CueDesk.app = { view: "mixer" };
 
   /* --------------------------------------------------------------- tabs */
 
+  function initSetupTabs() {
+    const tabs = Array.prototype.slice.call(document.querySelectorAll("[data-setup-tab]"));
+    tabs.forEach(function (tab) {
+      tab.addEventListener("click", function () {
+        const key = tab.dataset.setupTab;
+        tabs.forEach(function (t) {
+          const active = t === tab;
+          t.classList.toggle("is-active", active);
+          t.setAttribute("aria-selected", active ? "true" : "false");
+        });
+        document.querySelectorAll("[data-setup-pane]").forEach(function (pane) {
+          pane.hidden = pane.dataset.setupPane !== key;
+        });
+      });
+    });
+  }
+
+  /* ------------------------------------------------------------- Setup */
+
+  const SETUP_CONFIRM = /^\/-prefs\/(clockrate|clocksource|card\/|remote\/ioenable)/;
+  const SETUP_CONFIRM_MSG =
+    "Este cambio puede interrumpir el audio o la conexión de la consola. ¿Continuar?";
+  const SETUP_LOCAL_KEY = "cuedesk.setup.local";
+  const SETUP_IOENABLE = "/-prefs/remote/ioenable";
+  const PREAMP_BLOCKS = [
+    { label: "Local 1-8", base: 0 },
+    { label: "Local 9-16", base: 8 },
+    { label: "Local 17-24", base: 16 },
+    { label: "Local 25-32", base: 24 },
+  ];
+  let setupIoMask = 0;
+  const setupBitInputs = [];
+
+  function sel(label, path, options) {
+    return { label: label, kind: "select", path: path, type: "i", options: options };
+  }
+  function bool(label, path) {
+    return { label: label, kind: "bool", path: path, type: "i" };
+  }
+  function bit(label, n) {
+    return { label: label, kind: "bool", path: SETUP_IOENABLE, type: "i", bit: n };
+  }
+  function num(label, path, min, max, step) {
+    return { label: label, kind: "num", path: path, type: "f", min: min, max: max, step: step };
+  }
+  function lbool(label, key) {
+    return { label: label, kind: "bool", local: key };
+  }
+  function lsel(label, key, options) {
+    return { label: label, kind: "select", local: key, options: options };
+  }
+  function dis(label, options) {
+    return { label: label, kind: options ? "select" : "bool", options: options };
+  }
+  function txt(label) {
+    return { label: label, kind: "text" };
+  }
+  function btn(label, run) {
+    return { label: label, kind: "action", run: run };
+  }
+
+  /* Controles de cada subpestaña. Sin path = deshabilitado (ruta no confirmada
+     en los headers de Maillot o sin equivalente en la web). */
+  const SETUP_SPEC = {
+    connection: [
+      { title: "Mixer", items: [txt("Manual IP"), btn("Rescan"), btn("Select Mixer from list"), btn("Rename Mixer")] },
+      { title: "Conexión", items: [
+        btn("Abrir panel de conexión", function () {
+          const b = document.querySelector('[data-action="conn"]');
+          if (b) b.click();
+        }),
+        lbool("Auto Connect", "conn.auto"),
+        lbool("Auto Sync", "conn.sync"),
+        lsel("Sync direction", "conn.dir", ["Mixer → PC", "PC → Mixer"]),
+        btn("Synchronize"),
+      ] },
+      { title: "Este equipo", items: [txt("IP Address(es)")] },
+    ],
+    mixer: [
+      { title: "Sample rate", items: [
+        sel("Sample rate", "/-prefs/clockrate", ["48 kHz", "44.1 kHz"]),
+        sel("Synchronization", "/-prefs/clocksource", ["Internal", "AES50 A", "AES50 B", "Exp Card"]),
+        sel("Show control", "/-prefs/show_control", ["Cues", "Scenes", "Snippets"]),
+        dis("Panning mode", ["LR + Mono", "LCR enable"]),
+      ] },
+      { title: "General prefs", items: [
+        bool("Scene Go Next", "/-prefs/scene_advance"),
+        bool("Safe Main Levels", "/-prefs/safe_masterlevels"),
+        sel("12h clock mode", "/-prefs/clockmode", ["24h", "12h"]),
+      ] },
+      { title: "Mute system", items: [bool("Hard Mutes", "/-prefs/hardmute"), dis("DCA Groups"), dis("Channel ON buttons")] },
+      { title: "Link preferences", items: [
+        bool("HA Config", "/config/linkcfg/hadly"),
+        bool("EQ", "/config/linkcfg/eq"),
+        bool("Dyn", "/config/linkcfg/dyn"),
+        bool("Fader, Mute", "/config/linkcfg/fdrmute"),
+        dis("M/C depends on Main LR"),
+      ] },
+      { title: "Confirm pop-ups", items: [
+        bool("General", "/-prefs/confirm_general"),
+        bool("Overwrite/Delete", "/-prefs/confirm_overwrite"),
+        bool("Scene/Preset Load", "/-prefs/confirm_sceneload"),
+      ] },
+      { title: "View preferences", items: [bool("Select follows Bank", "/-prefs/selfollowsbank"), bool("Auto Select", "/-prefs/autosel")] },
+      { title: "Initialize / boot / time", items: [btn("Initialize settings"), btn("Custom boot file: Create"), btn("Sync Mixer")] },
+    ],
+    gui: [
+      { title: "PC show control", items: [
+        lsel("Show control", "gui.showctl", ["PC Cues", "PC Scenes", "PC Snippets", "Use mixer setting"]),
+        lsel("PC transport", "gui.transport", ["USB 2-Track", "Live 32-Track"]),
+      ] },
+      { title: "Preferences", items: [
+        lbool("Fader mode fine", "gui.faderfine"),
+        lbool("Tap flashing always", "gui.tapflash"),
+        lbool("Bus button names", "gui.busnames"),
+        lbool("Deactivate mouse wheel", "gui.wheel"),
+        lbool("DCA-Spill layer jump", "gui.dcaspill"),
+      ] },
+      { title: "Mixer UI link", items: [
+        lbool("Selected screen follows mixer", "gui.linkscreen"),
+        lbool("Selected channel follows mixer", "gui.linkchan"),
+      ] },
+      { title: "Window mode", items: [lbool("Restore windows at startup", "gui.restore"), btn("Shortcut keys"), btn("Initialize")] },
+      { title: "Sends taps", items: [lbool("Apply changes to all channels", "gui.sendtaps")] },
+      { title: "Reduced update rate", items: [lbool("Meter 50%", "gui.meter50"), lbool("RTA 50%", "gui.rta50")] },
+      { title: "Always on top", wide: true, cols: 2, items: [
+        "FX 1-8", "Recorder", "Show Control", "Meters", "Main", "RTA", "Library", "Monitor",
+        "Assign Set A-C", "Bus 1-8", "Bus 9-16", "Matrix/Main", "DCAs", "USER 1", "USER 2", "DCA Spill",
+      ].map(function (t, i) { return lbool(t, "gui.top." + i); }) },
+    ],
+    midi: [
+      { title: "Mackie Control", items: [
+        bool("Enable", "/-prefs/remote/enable"),
+        dis("Controlled fader bank", ["All (default)"]),
+        dis("MIDI input", ["select..."]),
+        dis("MIDI output", ["select..."]),
+      ] },
+      { title: "Remote", items: [
+        sel("Protocolo", "/-prefs/remote/protocol", ["MC", "HUI", "CC"]),
+        sel("Puerto", "/-prefs/remote/port", ["MIDI", "CARD", "RTP"]),
+      ] },
+      { title: "MIDI control interface", items: [bit("MIDI In/Out", 0), bit("Card MIDI", 1)] },
+      { title: "MIDI receive", items: [
+        bit("Program change", 3),
+        bit("Fader pos CC", 5),
+        bit("Ch mute CC", 7),
+        dis("Ch pan CC"),
+        dis("OSC over MIDI Sysex"),
+      ] },
+      { title: "MIDI transmit", items: [bit("Program change", 4), bit("Fader pos CC", 6), bit("Ch mute CC", 8), dis("Ch pan CC")] },
+      { title: "X-TOUCH", items: [dis("X-TOUCH over MIDI"), dis("X-TOUCH over Ethernet")] },
+    ],
+    card: [
+      { title: "Tarjeta", items: [
+        sel("Interfaz", "/-prefs/card/UFifc", ["FW", "USB"]),
+        sel("Modo USB", "/-prefs/card/USBmode", ["32/32", "16/16", "32/8", "8/32", "8/8", "2/2"]),
+      ] },
+    ],
+  };
+
+  function setupBox(key) {
+    return document.querySelector('[data-setup-render="' + key + '"]');
+  }
+
+  function setupRow(item) {
+    const row = document.createElement("label");
+    row.className = "setup__row";
+    const name = document.createElement("span");
+    name.textContent = item.label;
+    row.appendChild(name);
+    let input;
+    if (item.kind === "select") {
+      input = document.createElement("select");
+      (item.options || []).forEach(function (text, i) {
+        const op = document.createElement("option");
+        op.value = String(i);
+        op.textContent = text;
+        input.appendChild(op);
+      });
+    } else if (item.kind === "num") {
+      input = document.createElement("input");
+      input.type = "number";
+      input.min = String(item.min);
+      input.max = String(item.max);
+      input.step = String(item.step);
+    } else if (item.kind === "text") {
+      input = document.createElement("input");
+      input.type = "text";
+    } else {
+      input = document.createElement("input");
+      input.type = "checkbox";
+    }
+    if (item.path) {
+      input.dataset.setupOsc = item.path;
+      input.dataset.setupType = item.type || "i";
+    }
+    if (item.local) input.dataset.setupLocal = item.local;
+    if (item.bit !== undefined) input.dataset.setupBit = String(item.bit);
+    input.disabled = !(item.path || item.local);
+    row.appendChild(input);
+    return row;
+  }
+
+  function renderGroups(box, groups) {
+    groups.forEach(function (g) {
+      const fs = document.createElement("fieldset");
+      fs.className = "setup__card";
+      const lg = document.createElement("legend");
+      lg.textContent = g.title;
+      fs.appendChild(lg);
+      if (g.wide) fs.classList.add("setup__card--wide");
+      const host = document.createElement("div");
+      if (g.cols) host.className = "setup__cols setup__cols--" + g.cols;
+      fs.appendChild(host);
+      g.items.forEach(function (it) {
+        if (it.kind === "action") {
+          const b = document.createElement("button");
+          b.type = "button";
+          b.className = "setup__btn";
+          b.textContent = it.label;
+          if (it.run) b.addEventListener("click", it.run);
+          else b.disabled = true;
+          host.appendChild(b);
+        } else {
+          host.appendChild(setupRow(it));
+        }
+      });
+      box.appendChild(fs);
+    });
+  }
+
+  function preampStrip(n, idx) {
+    const pad = String(n).padStart(2, "0");
+    const strip = document.createElement("div");
+    strip.className = "setup__strip";
+
+    const lab48 = document.createElement("label");
+    lab48.className = "setup__48v";
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.dataset.setupOsc = "/headamp/" + idx + "/phantom";
+    cb.dataset.setupType = "i";
+    const txt48 = document.createElement("span");
+    txt48.textContent = "48V";
+    lab48.appendChild(cb);
+    lab48.appendChild(txt48);
+
+    const readout = document.createElement("output");
+    readout.className = "setup__db";
+    const show = function (v) {
+      const x = Number(v);
+      readout.textContent = (x >= 0 ? "+" : "") + x.toFixed(1) + " dB";
+    };
+
+    const fader = document.createElement("input");
+    fader.type = "range";
+    fader.className = "setup__vfader";
+    fader.min = "-12";
+    fader.max = "60";
+    fader.step = "0.5";
+    fader.value = "0";
+    fader.setAttribute("aria-label", "Ganancia CH " + pad);
+    fader.dataset.setupOsc = "/headamp/" + idx + "/gain";
+    fader.dataset.setupType = "f";
+    fader.addEventListener("input", function () {
+      show(fader.value);
+    });
+    CueDesk.OSC.on("/headamp/" + idx + "/gain", show);
+    show(0);
+
+    const num = document.createElement("span");
+    num.className = "setup__chnum";
+    num.textContent = pad;
+
+    strip.appendChild(lab48);
+    strip.appendChild(readout);
+    strip.appendChild(fader);
+    strip.appendChild(num);
+    return strip;
+  }
+
+  function renderPreamps(box) {
+    const head = document.createElement("div");
+    head.className = "setup__pre-head";
+
+    const pickWrap = document.createElement("label");
+    pickWrap.className = "setup__row";
+    const pickName = document.createElement("span");
+    pickName.textContent = "Preamp block";
+    const pick = document.createElement("select");
+    PREAMP_BLOCKS.forEach(function (b, i) {
+      const op = document.createElement("option");
+      op.value = String(i);
+      op.textContent = b.label;
+      pick.appendChild(op);
+    });
+    ["AES50 A 1-8", "AES50 B 1-8"].forEach(function (t) {
+      const op = document.createElement("option");
+      op.textContent = t;
+      op.disabled = true;
+      pick.appendChild(op);
+    });
+    pickWrap.appendChild(pickName);
+    pickWrap.appendChild(pick);
+    head.appendChild(pickWrap);
+
+    const globals = document.createElement("fieldset");
+    globals.className = "setup__card";
+    const gl = document.createElement("legend");
+    gl.textContent = "Global options";
+    globals.appendChild(gl);
+    ["Lock Stagebox", "HA Gain Split", "HA Remote AES50 Port A", "HA Remote AES50 Port B"].forEach(function (t) {
+      globals.appendChild(setupRow(dis(t)));
+    });
+    head.appendChild(globals);
+    box.appendChild(head);
+
+    const blocks = PREAMP_BLOCKS.map(function (b, i) {
+      const wrap = document.createElement("div");
+      wrap.className = "setup__strips";
+      wrap.hidden = i !== 0;
+      const scale = document.createElement("div");
+      scale.className = "setup__scale";
+      [60, 48, 36, 24, 12, 0, -12].forEach(function (v) {
+        const s = document.createElement("span");
+        s.textContent = String(v);
+        scale.appendChild(s);
+      });
+      wrap.appendChild(scale);
+      for (let k = 0; k < 8; k++) {
+        const n = b.base + k + 1;
+        wrap.appendChild(preampStrip(n, String(n - 1).padStart(3, "0")));
+      }
+      box.appendChild(wrap);
+      return wrap;
+    });
+    pick.addEventListener("change", function () {
+      blocks.forEach(function (w, i) {
+        w.hidden = i !== Number(pick.value);
+      });
+    });
+  }
+
+  function renderCard(box) {
+    const empty = document.createElement("p");
+    empty.className = "setup__hint";
+    empty.textContent = "No Card installed!";
+    const form = document.createElement("div");
+    form.hidden = true;
+    renderGroups(form, SETUP_SPEC.card);
+    box.appendChild(empty);
+    box.appendChild(form);
+    CueDesk.OSC.on("/-stat/xcardtype", function (v) {
+      const has = Number(v) !== 0;
+      empty.hidden = has;
+      form.hidden = !has;
+    });
+  }
+
+  function renderSetup() {
+    ["connection", "mixer", "gui", "midi"].forEach(function (key) {
+      const box = setupBox(key);
+      if (box) renderGroups(box, SETUP_SPEC[key]);
+    });
+    const pre = setupBox("preamps");
+    if (pre) renderPreamps(pre);
+    const card = setupBox("card");
+    if (card) renderCard(card);
+  }
+
+  function setupText(el) {
+    return el.type === "checkbox" ? (el.checked ? "1" : "0") : el.value;
+  }
+
+  function setupRevert(el) {
+    if (el.type === "checkbox") el.checked = el.dataset.last === "1";
+    else el.value = el.dataset.last;
+  }
+
+  function setupApply(el, v) {
+    if (el.type === "checkbox") el.checked = Number(v) === 1;
+    else if (el.tagName === "SELECT") el.value = String(Math.round(Number(v)));
+    else el.value = String(v);
+    el.dataset.last = setupText(el);
+  }
+
+  function loadLocal() {
+    try {
+      return JSON.parse(localStorage.getItem(SETUP_LOCAL_KEY) || "{}") || {};
+    } catch (_) {
+      return {};
+    }
+  }
+
+  function saveLocal(key, value) {
+    const m = loadLocal();
+    m[key] = value;
+    try {
+      localStorage.setItem(SETUP_LOCAL_KEY, JSON.stringify(m));
+    } catch (_) {}
+  }
+
+  function bindLocal(el) {
+    const key = el.dataset.setupLocal;
+    const saved = loadLocal()[key];
+    if (saved !== undefined) setupApply(el, saved);
+    el.addEventListener("change", function () {
+      saveLocal(key, el.type === "checkbox" ? (el.checked ? 1 : 0) : parseInt(el.value, 10));
+    });
+  }
+
+  function refreshBits() {
+    setupBitInputs.forEach(function (el) {
+      el.checked = ((setupIoMask >> Number(el.dataset.setupBit)) & 1) === 1;
+    });
+  }
+
+  function bindBit(el) {
+    setupBitInputs.push(el);
+    el.addEventListener("change", function () {
+      const n = Number(el.dataset.setupBit);
+      const next = el.checked ? setupIoMask | (1 << n) : setupIoMask & ~(1 << n);
+      if (!window.confirm(SETUP_CONFIRM_MSG)) {
+        el.checked = !el.checked;
+        return;
+      }
+      setupIoMask = next;
+      refreshBits();
+      CueDesk.OSC.send(SETUP_IOENABLE, next, "i", { commit: true });
+    });
+  }
+
+  function bindOsc(el) {
+    const path = el.dataset.setupOsc;
+    const type = el.dataset.setupType || "i";
+    el.dataset.last = setupText(el);
+    CueDesk.OSC.on(path, function (v) {
+      setupApply(el, v);
+    });
+    el.addEventListener("change", function () {
+      let value;
+      if (el.type === "checkbox") value = el.checked ? 1 : 0;
+      else if (el.tagName === "SELECT") value = parseInt(el.value, 10);
+      else value = parseFloat(el.value);
+      if (!isFinite(value)) return setupRevert(el);
+      if (el.min !== "" && el.min !== undefined && value < parseFloat(el.min)) return setupRevert(el);
+      if (el.max !== "" && el.max !== undefined && value > parseFloat(el.max)) return setupRevert(el);
+      if (SETUP_CONFIRM.test(path) && !window.confirm(SETUP_CONFIRM_MSG)) return setupRevert(el);
+      el.dataset.last = setupText(el);
+      CueDesk.OSC.send(path, value, type, { commit: true });
+    });
+  }
+
+  function bindSetupInput(el) {
+    if (el.disabled) return;
+    if (el.dataset.setupLocal) bindLocal(el);
+    else if (el.dataset.setupBit !== undefined) bindBit(el);
+    else if (el.dataset.setupOsc) bindOsc(el);
+  }
+
+  const CONSOLE_IP_DEFAULT = "192.168.1.10";
+  let consoleStatus = null;
+
+  function setConsoleStatus(text) {
+    if (consoleStatus) consoleStatus.textContent = text;
+  }
+
+  function detectConsole() {
+    const input = document.querySelector("[data-setup-console-ip]");
+    const ip = input && input.value.trim() ? input.value.trim() : CONSOLE_IP_DEFAULT;
+    saveLocal("conn.consoleIp", ip);
+    setConsoleStatus("Buscando consola en " + ip + " …");
+    return fetch("/api/console?ip=" + encodeURIComponent(ip))
+      .then(function (res) {
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        return res.json();
+      })
+      .then(function (r) {
+        if (r.found) {
+          const parts = [r.model, r.name, r.version].filter(function (x) {
+            return x;
+          });
+          setConsoleStatus(
+            "Consola encontrada en " + r.ip + (parts.length ? ": " + parts.join(" · ") : "")
+          );
+        } else {
+          setConsoleStatus("No responde en " + r.ip + " (" + (r.reason || "sin respuesta") + ")");
+        }
+      })
+      .catch(function () {
+        setConsoleStatus("Detección no disponible en este servidor");
+      });
+  }
+
+  function renderConsoleProbe(box) {
+    const fs = document.createElement("fieldset");
+    fs.className = "setup__card";
+    const lg = document.createElement("legend");
+    lg.textContent = "Consola X32";
+    fs.appendChild(lg);
+
+    const row = document.createElement("label");
+    row.className = "setup__row";
+    const name = document.createElement("span");
+    name.textContent = "IP";
+    const ipInput = document.createElement("input");
+    ipInput.type = "text";
+    ipInput.setAttribute("data-setup-console-ip", "");
+    ipInput.value = loadLocal()["conn.consoleIp"] || CONSOLE_IP_DEFAULT;
+    ipInput.addEventListener("change", detectConsole);
+    row.appendChild(name);
+    row.appendChild(ipInput);
+    fs.appendChild(row);
+
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "setup__btn";
+    btn.textContent = "Detectar";
+    btn.addEventListener("click", detectConsole);
+    fs.appendChild(btn);
+
+    consoleStatus = document.createElement("p");
+    consoleStatus.className = "setup__hint";
+    fs.appendChild(consoleStatus);
+
+    box.insertBefore(fs, box.firstChild);
+    detectConsole();
+  }
+
+  function initSetupControls() {
+    renderSetup();
+    const conn = setupBox("connection");
+    if (conn) renderConsoleProbe(conn);
+    CueDesk.OSC.on(SETUP_IOENABLE, function (v) {
+      setupIoMask = Math.trunc(Number(v)) || 0;
+      refreshBits();
+    });
+    document
+      .querySelectorAll("[data-setup-render] input, [data-setup-render] select")
+      .forEach(bindSetupInput);
+  }
+
   function initTabs() {
-    const tabs = Array.prototype.slice.call(document.querySelectorAll(".tab"));
+    const tabs = Array.prototype.slice.call(document.querySelectorAll(".tab[data-view]"));
 
     function select(tab) {
       tabs.forEach(function (t) {
@@ -179,6 +721,7 @@ CueDesk.app = { view: "mixer" };
       });
       const view = tab.dataset.view;
       CueDesk.app.view = view;
+      document.querySelector(".app").classList.toggle("is-setup", view === "setup");
       document.querySelectorAll("[data-view-panel]").forEach(function (panel) {
         panel.hidden = panel.dataset.viewPanel !== view;
       });
@@ -411,6 +954,8 @@ CueDesk.app = { view: "mixer" };
     Mixer.init(); // rack + master + vúmetros
     initLink();   // LED de enlace + panel WebSocket
     initTabs();
+    initSetupTabs();
+    initSetupControls();
     initLocalPreview();
     initTalkback();
     initAutomix();
