@@ -3,6 +3,16 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 Versionado semántico (SemVer): `MAJOR.MINOR.PATCH`.
 
+## [1.0.18] — 2026-10-13
+
+### Changed
+- **Vúmetros de canal en GAIN**: muestran la señal IN del preamp, independiente del fader y del mute.
+- **Vúmetros de canal en MIX**: siguen siendo OUT (post-fader); con mute bajan a -95 dB.
+- **Master estéreo sólo en Main LR**: con M/C o un bus se muestra una sola barra.
+
+### Fixed
+- El master con destino bus mostraba el nivel de Main LR. Ahora el dato real de `/meters/1` sólo se usa con Main LR; M/C y buses usan la simulación de su propio fader y mute.
+
 ## [1.0.17] — 2026-10-13
 
 ### Added

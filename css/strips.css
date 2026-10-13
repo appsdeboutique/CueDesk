@@ -693,6 +693,12 @@
   width: 14px;
 }
 
+/* Solo Main LR es estéreo: con M/C o un bus se muestra una sola barra */
+.strip--master.is-mono [data-role="meter-r"],
+.strip--master.is-mono .meter-scale[data-side="r"] {
+  display: none;
+}
+
 /* Selector de bus: ocupa la cabecera del master (el texto de debajo era
    redundante, ya que el propio botón dice dónde estamos). Se baja del borde
    y crece: 45 → 62 px, con 18 px de aire arriba y 10 px abajo (+ gap 8 = 90),

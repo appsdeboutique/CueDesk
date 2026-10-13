@@ -752,6 +752,8 @@ CueDesk.Mixer = (function () {
    * Prioridad: dato real del backend (/meters/1) si está fresco → simulación.
    */
   function meterLevel(m, side) {
+    // GAIN: señal IN del preamp (independiente del fader y del mute)
+    if (gainMode) return m.sim[side].level;
     if (m.muted) return -95;
     const ext = m.ext;
     if (ext && ext[side] !== null && isFinite(ext[side]) && perfNow() - ext.at < EXT_TTL) {
@@ -1307,6 +1309,7 @@ CueDesk.Mixer = (function () {
     const t = targetById(id);
     if (!t || t.id !== id) return;
     masterTarget = id;
+    masterEl.classList.toggle("is-mono", id !== "st");
     const st = stateFor(id);
     masterSlider.setPath(t.paths.fader);
     masterSlider.setValue(st.faderNorm, { silent: true });
@@ -1418,6 +1421,7 @@ CueDesk.Mixer = (function () {
     const st = stateFor(masterTarget);
     if (st.muted) return -95;
     if (
+      masterTarget === "st" &&
       masterExt &&
       masterExt[side] !== null &&
       isFinite(masterExt[side]) &&
