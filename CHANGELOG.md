@@ -9,7 +9,7 @@ Versionado semántico (SemVer): `MAJOR.MINOR.PATCH`.
 - Selector de color de los canales: paleta de 8 colores al editar el nombre (mayor superficie táctil), ciclo completo X32 por la barra y persistencia en localStorage (cuedesk.ch.colors).
 - Color de los buses y de las tiras de bus unificados con la fuente de verdad; la capa cian del master bus pasa de 0.25 a 0.15.
 
-## [1.0.14] — 2026-10-09
+## [1.0.15] — 2026-10-13\n\n### Changed\n- Selector de color de los canales: paleta de 8 colores al editar el nombre, ciclo completo X32 por la barra y persistencia en localStorage (cuedesk.ch.colors).\n- Color de los buses y de las tiras de bus unificados; capa cian del master bus pasa de 0.25 a 0.15.\n\n## [1.0.14] — 2026-10-09
 
 ### Added
 - **Selector de BUS del master**: caja propia con cuadros generosos para **Main LR**, **M/C Mono** y **Bus 01–16** (18 destinos). Cada destino tiene su estado de fader/mute y sus rutas OSC (`/main/st|m/…` y `/bus/NN/…`).
