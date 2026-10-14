@@ -689,6 +689,492 @@ CueDesk.app = { view: "mixer" };
       .forEach(bindSetupInput);
   }
 
+  /* ------------------------------------------------------------ Routing */
+
+  /* Listas de fuentes de los headers de Maillot (X32.c). El valor de cada
+     celda es el índice del enum; la columna i corresponde al valor i. */
+  const XR_IN = [
+    "AN1-8", "AN9-16", "AN17-24", "AN25-32",
+    "A1-8", "A9-16", "A17-24", "A25-32", "A33-40", "A41-48",
+    "B1-8", "B9-16", "B17-24", "B25-32", "B33-40", "B41-48",
+    "CARD1-8", "CARD9-16", "CARD17-24", "CARD25-32",
+  ];
+  const XR_AEA = XR_IN.concat([
+    "OUT1-8", "OUT9-16", "P161-8", "P169-16", "AUX1-6/Mon", "AuxIN1-6/TB",
+  ]);
+  const XR_OUT1 = [
+    "AN1-4", "AN9-12", "AN17-20", "AN25-28",
+    "A1-4", "A9-12", "A17-20", "A25-28", "A33-36", "A41-44",
+    "B1-4", "B9-12", "B17-20", "B25-28", "B33-36", "B41-44",
+    "CARD1-4", "CARD9-12", "CARD17-20", "CARD25-28",
+    "OUT1-4", "OUT9-12", "P161-4", "P169-12", "AUX/CR", "AUX/TB",
+  ];
+  const XR_OUT5 = [
+    "AN5-8", "AN13-16", "AN21-24", "AN29-32",
+    "A5-8", "A13-16", "A21-24", "A29-32", "A37-40", "A45-48",
+    "B5-8", "B13-16", "B21-24", "B29-32", "B37-40", "B45-48",
+    "CARD5-8", "CARD13-16", "CARD21-24", "CARD29-32",
+    "OUT5-8", "OUT13-16", "P165-8", "P1613-16", "AUX/CR", "AUX/TB",
+  ];
+  const XR_INA = [
+    "AUX1-4", "AN1-2", "AN1-4", "AN1-6", "A1-2", "A1-4", "A1-6",
+    "B1-2", "B1-4", "B1-6", "CARD1-2", "CARD1-4", "CARD1-6",
+  ];
+
+  const ROUTE_GROUPS = [
+    { prefix: "AuxIN", group: "Auxin" },
+    { prefix: "AUX", group: "Aux" },
+    { prefix: "CARD", group: "Card" },
+    { prefix: "OUT", group: "Out" },
+    { prefix: "P16", group: "Ultranet" },
+    { prefix: "AN", group: "Local" },
+    { prefix: "A", group: "AES50-A" },
+    { prefix: "B", group: "AES50-B" },
+  ];
+
+  function routeColumns(list) {
+    return list.map(function (text, value) {
+      let group = "";
+      let label = text;
+      for (const g of ROUTE_GROUPS) {
+        if (text.startsWith(g.prefix)) {
+          group = g.group;
+          label = text.slice(g.prefix.length);
+          break;
+        }
+      }
+      return { value: value, group: group, label: label || text };
+    });
+  }
+
+  function aesRows(bank) {
+    return ["1-8", "9-16", "17-24", "25-32", "33-40", "41-48"].map(function (r) {
+      return { label: "AES50-" + bank + " " + r, path: "/config/routing/AES50" + bank + "/" + r, list: XR_AEA };
+    });
+  }
+
+  const ROUTE_ROWS = {
+    inputs: ["1-8", "9-16", "17-24", "25-32"].map(function (r) {
+      return { label: "Channel " + r, path: "/config/routing/IN/" + r, list: XR_IN };
+    }),
+    aes50: aesRows("A").concat(aesRows("B")),
+    card: ["1-8", "9-16", "17-24", "25-32"].map(function (r) {
+      return { label: "Outputs " + r, path: "/config/routing/CARD/" + r, list: XR_AEA };
+    }),
+    xlr: [
+      { label: "Outputs 1-4", path: "/config/routing/OUT/1-4", list: XR_OUT1 },
+      { label: "Outputs 5-8", path: "/config/routing/OUT/5-8", list: XR_OUT5 },
+      { label: "Outputs 9-12", path: "/config/routing/OUT/9-12", list: XR_OUT1 },
+      { label: "Outputs 13-16", path: "/config/routing/OUT/13-16", list: XR_OUT5 },
+    ],
+  };
+
+  const ROUTE_COLUMNS = {
+    inputs: routeColumns(XR_IN).concat(
+      ["1-8", "9-16", "17-24", "25-32"].map(function (l, k) {
+        return { value: 20 + k, group: "User In", label: l, unverified: true };
+      })
+    ),
+    aes50: routeColumns(XR_AEA),
+    card: routeColumns(XR_AEA),
+    xlr: routeColumns(XR_OUT1),
+  };
+
+  function routeMark(row) {
+    row.cells.forEach(function (b) {
+      b.classList.toggle("is-on", Number(b.dataset.value) === row.value);
+    });
+  }
+
+  function renderRouteGrid(box, key) {
+    const rows = ROUTE_ROWS[key];
+    const cols = ROUTE_COLUMNS[key];
+    const wrap = document.createElement("div");
+    wrap.className = "route-scroll";
+    const table = document.createElement("table");
+    table.className = "route-table";
+
+    const head1 = document.createElement("tr");
+    const corner = document.createElement("th");
+    corner.textContent = "Source / Output";
+    head1.appendChild(corner);
+    let i = 0;
+    while (i < cols.length) {
+      let j = i;
+      while (j + 1 < cols.length && cols[j + 1].group === cols[i].group) j++;
+      const th = document.createElement("th");
+      th.colSpan = j - i + 1;
+      th.textContent = cols[i].group;
+      head1.appendChild(th);
+      i = j + 1;
+    }
+    table.appendChild(head1);
+
+    const head2 = document.createElement("tr");
+    head2.appendChild(document.createElement("th"));
+    cols.forEach(function (c) {
+      const th = document.createElement("th");
+      th.textContent = c.label;
+      head2.appendChild(th);
+    });
+    table.appendChild(head2);
+
+    rows.forEach(function (row) {
+      const tr = document.createElement("tr");
+      const th = document.createElement("th");
+      th.textContent = row.label;
+      tr.appendChild(th);
+      row.cells = [];
+      row.value = null;
+      cols.forEach(function (c) {
+        const td = document.createElement("td");
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "route-cell";
+        b.dataset.value = c.value === null ? "" : String(c.value);
+        b.title = row.label + " ← " + c.group + " " + c.label + (c.unverified ? " (valor por verificar)" : "");
+        b.addEventListener("click", function () {
+          row.value = c.value;
+          routeMark(row);
+          CueDesk.OSC.send(row.path, c.value, "i", { commit: true });
+        });
+        td.appendChild(b);
+        tr.appendChild(td);
+        row.cells.push(b);
+      });
+      table.appendChild(tr);
+      CueDesk.OSC.on(row.path, function (v) {
+        const n = parseInt(v, 10);
+        if (!isFinite(n)) return;
+        row.value = n;
+        routeMark(row);
+      });
+    });
+
+    wrap.appendChild(table);
+    box.appendChild(wrap);
+  }
+
+  function routeSelect(box, label, path, options) {
+    const row = document.createElement("label");
+    row.className = "setup__row";
+    const name = document.createElement("span");
+    name.textContent = label;
+    const sel = document.createElement("select");
+    options.forEach(function (opt, i) {
+      const o = typeof opt === "string" ? { text: opt } : opt;
+      const op = document.createElement("option");
+      op.value = String(i);
+      op.textContent = o.text;
+      op.disabled = !!o.disabled;
+      sel.appendChild(op);
+    });
+    sel.addEventListener("change", function () {
+      CueDesk.OSC.send(path, parseInt(sel.value, 10), "i", { commit: true });
+    });
+    CueDesk.OSC.on(path, function (v) {
+      const n = parseInt(v, 10);
+      if (isFinite(n)) sel.value = String(n);
+    });
+    row.appendChild(name);
+    row.appendChild(sel);
+    box.appendChild(row);
+  }
+
+  /* ----------------------------------------------------------- Out 1-16 */
+
+  /* Fuentes de /outputs/main/NN/src (confirmado con scene.scn).
+     Una sola tabla continua; el scroll lateral avanza de bloque en bloque. */
+  const OUT_COLS = [
+    { value: 0, group: "", label: "Off" },
+    { value: 1, group: "Main", label: "L" },
+    { value: 2, group: "Main", label: "R" },
+    { value: 3, group: "Main", label: "MC", unverified: true },
+  ];
+  for (let i = 1; i <= 16; i++) {
+    OUT_COLS.push({ value: 3 + i, group: "Mix Bus", label: String(i).padStart(2, "0") });
+  }
+  for (let i = 1; i <= 6; i++) {
+    OUT_COLS.push({ value: 19 + i, group: "Matrix", label: String(i), unverified: true });
+  }
+  for (let i = 1; i <= 32; i++) {
+    OUT_COLS.push({ value: 25 + i, group: "Dir Ch", label: String(i).padStart(2, "0"), verifiedFrom: i <= 16 ? "p16" : undefined, unverified: i > 16 });
+  }
+  for (let i = 1; i <= 8; i++) {
+    OUT_COLS.push({ value: 57 + i, group: "Dir Aux", label: String(i).padStart(2, "0"), verifiedFrom: i <= 2 ? "main" : undefined, unverified: i > 2 });
+  }
+  for (let i = 1; i <= 4; i++) {
+    const base = 65 + 2 * (i - 1);
+    OUT_COLS.push({ value: base, group: "Dir FX", label: i + "L", verifiedFrom: i === 1 ? "main" : undefined, unverified: i > 1 });
+    OUT_COLS.push({ value: base + 1, group: "Dir FX", label: i + "R", verifiedFrom: i === 1 ? "main" : undefined, unverified: i > 1 });
+  }
+  OUT_COLS.push({ value: 74, group: "Monitor", label: "L", verifiedFrom: "main" });
+  OUT_COLS.push({ value: 75, group: "Monitor", label: "R", verifiedFrom: "main" });
+  OUT_COLS.push({ value: 76, group: "Monitor", label: "TB", unverified: true });
+
+  /* Marca la primera columna de cada grupo como punto de anclaje del scroll */
+  OUT_COLS.forEach(function (c, i) {
+    c.snap = i === 0 || OUT_COLS[i - 1].group !== c.group;
+  });
+
+  /* Enum Xotpos (/outputs/main/NN/pos) */
+  const OUT_TAPS = [
+    "Input/LC", "Input/LC + Mute", "Pre EQ", "Pre EQ + Mute", "Post EQ",
+    "Post EQ + Mute", "Pre Fader", "Pre Fader + Mute", "Post Fader",
+  ];
+  const OUT_TAP_KEY = "cuedesk.out.defaultTap";
+
+  function outDefaultTap() {
+    const v = parseInt(localStorage.getItem(OUT_TAP_KEY), 10);
+    return isFinite(v) && v >= 0 && v < OUT_TAPS.length ? v : 8;
+  }
+
+  function markOut(row) {
+    row.cells.forEach(function (b) {
+      const on = Number(b.dataset.value) === row.src;
+      b.className = "route-cell" + (on ? " is-on tap-" + row.tap : "");
+    });
+    if (row.pol) row.pol.className = "route-cell route-cell--pol" + (row.inv ? " is-on" : "");
+  }
+
+  function openTapMenu(x, y, row) {
+    const old = document.querySelector(".tap-menu");
+    if (old) old.remove();
+    const menu = document.createElement("div");
+    menu.className = "tap-menu";
+    menu.style.left = x + "px";
+    menu.style.top = y + "px";
+    OUT_TAPS.forEach(function (text, t) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = text;
+      b.addEventListener("click", function () {
+        row.tap = t;
+        markOut(row);
+        CueDesk.OSC.send(row.posPath, t, "i", { commit: true });
+        menu.remove();
+      });
+      menu.appendChild(b);
+    });
+    document.body.appendChild(menu);
+    setTimeout(function () {
+      document.addEventListener("pointerdown", function close(e) {
+        if (!menu.contains(e.target)) {
+          menu.remove();
+          document.removeEventListener("pointerdown", close);
+        }
+      });
+    }, 0);
+  }
+
+  function outCell(row, c) {
+    const td = document.createElement("td");
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "route-cell";
+    b.dataset.value = String(c.value);
+    const extra = [];
+    if (c.verifiedFrom) extra.push("confirmado");
+    if (c.unverified) extra.push("valor por verificar");
+    b.title = "Output " + row.id + " ← " + (c.group ? c.group + " " : "") + c.label + (extra.length ? " (" + extra.join(", ") + ")" : "");
+    b.addEventListener("click", function () {
+      if (row.src === c.value) return;
+      row.src = c.value;
+      row.tap = outDefaultTap();
+      markOut(row);
+      CueDesk.OSC.send(row.srcPath, c.value, "i", { commit: true });
+      CueDesk.OSC.send(row.posPath, row.tap, "i", { commit: true });
+    });
+    b.addEventListener("contextmenu", function (e) {
+      e.preventDefault();
+      if (row.src === c.value) openTapMenu(e.clientX, e.clientY, row);
+    });
+    let timer = null;
+    b.addEventListener("pointerdown", function (e) {
+      if (row.src !== c.value) return;
+      timer = setTimeout(function () {
+        timer = null;
+        openTapMenu(e.clientX, e.clientY, row);
+      }, 500);
+    });
+    const clear = function () {
+      clearTimeout(timer);
+      timer = null;
+    };
+    b.addEventListener("pointerup", clear);
+    b.addEventListener("pointerleave", clear);
+    td.appendChild(b);
+    row.cells.push(b);
+    return td;
+  }
+
+  function renderOutGrid(box) {
+    const rows = [];
+    for (let n = 1; n <= 16; n++) {
+      const id = String(n).padStart(2, "0");
+      rows.push({
+        id: id,
+        src: null,
+        tap: outDefaultTap(),
+        inv: 0,
+        cells: [],
+        pol: null,
+        srcPath: "/outputs/main/" + id + "/src",
+        posPath: "/outputs/main/" + id + "/pos",
+        invPath: "/outputs/main/" + id + "/invert",
+      });
+    }
+
+    rows.forEach(function (row) {
+      CueDesk.OSC.on(row.srcPath, function (v) {
+        const k = parseInt(v, 10);
+        if (!isFinite(k)) return;
+        row.src = k;
+        markOut(row);
+      });
+      CueDesk.OSC.on(row.posPath, function (v) {
+        const t = parseInt(v, 10);
+        if (!isFinite(t)) return;
+        row.tap = t;
+        markOut(row);
+      });
+      CueDesk.OSC.on(row.invPath, function (v) {
+        row.inv = parseInt(v, 10) === 1 ? 1 : 0;
+        markOut(row);
+      });
+    });
+
+    const wrap = document.createElement("div");
+    wrap.className = "route-scroll route-scroll--out";
+    const table = document.createElement("table");
+    table.className = "route-table";
+
+    const head1 = document.createElement("tr");
+    const corner = document.createElement("th");
+    corner.className = "route-rowhead";
+    corner.textContent = "Output";
+    head1.appendChild(corner);
+    const phaseTop = document.createElement("th");
+    phaseTop.textContent = "Phase";
+    head1.appendChild(phaseTop);
+    let i = 0;
+    while (i < OUT_COLS.length) {
+      let j = i;
+      while (j + 1 < OUT_COLS.length && OUT_COLS[j + 1].group === OUT_COLS[i].group) j++;
+      const th = document.createElement("th");
+      th.colSpan = j - i + 1;
+      th.textContent = OUT_COLS[i].group;
+      if (OUT_COLS[i].snap) th.classList.add("route-snap");
+      head1.appendChild(th);
+      i = j + 1;
+    }
+    table.appendChild(head1);
+
+    const head2 = document.createElement("tr");
+    const c2 = document.createElement("th");
+    c2.className = "route-rowhead";
+    head2.appendChild(c2);
+    head2.appendChild(document.createElement("th"));
+    OUT_COLS.forEach(function (c) {
+      const th = document.createElement("th");
+      th.textContent = c.label;
+      if (c.snap) th.classList.add("route-snap");
+      head2.appendChild(th);
+    });
+    table.appendChild(head2);
+
+    rows.forEach(function (row) {
+      const tr = document.createElement("tr");
+      const th = document.createElement("th");
+      th.className = "route-rowhead";
+      th.textContent = "Out " + row.id;
+      tr.appendChild(th);
+
+      const tdPol = document.createElement("td");
+      const pol = document.createElement("button");
+      pol.type = "button";
+      pol.className = "route-cell route-cell--pol";
+      pol.title = "Polaridad — " + row.invPath;
+      pol.addEventListener("click", function () {
+        row.inv = row.inv ? 0 : 1;
+        markOut(row);
+        CueDesk.OSC.send(row.invPath, row.inv, "i", { commit: true });
+      });
+      tdPol.appendChild(pol);
+      tr.appendChild(tdPol);
+      row.pol = pol;
+
+      OUT_COLS.forEach(function (c) {
+        const td = outCell(row, c);
+        if (c.snap) td.classList.add("route-snap");
+        tr.appendChild(td);
+      });
+      table.appendChild(tr);
+    });
+
+    wrap.appendChild(table);
+    box.appendChild(wrap);
+
+    const bottom = document.createElement("label");
+    bottom.className = "setup__row routing__extra";
+    const name = document.createElement("span");
+    name.textContent = "Default Signal Tap";
+    const sel = document.createElement("select");
+    OUT_TAPS.forEach(function (text, t) {
+      const op = document.createElement("option");
+      op.value = String(t);
+      op.textContent = text;
+      sel.appendChild(op);
+    });
+    sel.value = String(outDefaultTap());
+    sel.addEventListener("change", function () {
+      try {
+        localStorage.setItem(OUT_TAP_KEY, sel.value);
+      } catch (_) {}
+    });
+    bottom.appendChild(name);
+    bottom.appendChild(sel);
+    box.appendChild(bottom);
+  }
+
+  function initRouting() {
+    Object.keys(ROUTE_ROWS).forEach(function (key) {
+      const box = document.querySelector('[data-routing-render="' + key + '"]');
+      if (box) renderRouteGrid(box, key);
+    });
+    const outBox = document.querySelector('[data-routing-render="out"]');
+    if (outBox) renderOutGrid(outBox);
+    const extra = document.querySelector('[data-routing-extra="inputs"]');
+    if (extra) {
+      const remap = [
+        "Aux Ins", "Local 1-2", "Local 1-4", "Local 1-6",
+        "AES50 A1-2", "AES50 A1-4", "AES50 A1-6",
+        "AES50 B1-2", "AES50 B1-4", "AES50 B1-6",
+        "Card 1-2", "Card 1-4", "Card 1-6",
+        "User In 1-2",
+        "User In 1-4",
+        "User In 1-6",
+      ];
+      routeSelect(extra, "Aux In Remap", "/config/routing/IN/AUX", remap);
+      routeSelect(extra, "Record / Play", "/config/routing/routswitch", ["Record", "Play"]);
+      routeSelect(extra, "Play remap", "/config/routing/PLAY/AUX", remap);
+    }
+    const tabs = Array.prototype.slice.call(document.querySelectorAll("[data-routing-tab]"));
+    tabs.forEach(function (tab) {
+      tab.addEventListener("click", function () {
+        const key = tab.dataset.routingTab;
+        tabs.forEach(function (t) {
+          const active = t === tab;
+          t.classList.toggle("is-active", active);
+          t.setAttribute("aria-selected", active ? "true" : "false");
+        });
+        document.querySelectorAll("[data-routing-pane]").forEach(function (pane) {
+          pane.hidden = pane.dataset.routingPane !== key;
+        });
+      });
+    });
+  }
+
   function initTabs() {
     const tabs = Array.prototype.slice.call(document.querySelectorAll(".tab[data-view]"));
 
@@ -935,6 +1421,7 @@ CueDesk.app = { view: "mixer" };
     initTabs();
     initSetupTabs();
     initSetupControls();
+    initRouting();
     initLocalPreview();
     initTalkback();
     initAutomix();

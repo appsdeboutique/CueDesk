@@ -1220,3 +1220,156 @@
   border-color: var(--green);
   box-shadow: 0 0 14px rgba(46, 224, 106, 0.45);
 }
+
+/* Routing: rejillas de rutas (fila = destino, columna = fuente) */
+.routing__body {
+  padding: 12px 14px;
+}
+
+.routing__pane[hidden] {
+  display: none;
+}
+
+.routing__extra {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.route-scroll {
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--bg-inset);
+}
+
+.route-table {
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.route-table th,
+.route-table td {
+  border: 1px solid #1d1d24;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.route-table th {
+  padding: 4px 6px;
+  color: var(--text-dim);
+  font-weight: 600;
+  background: var(--bg-card);
+}
+
+.route-table td {
+  padding: 0;
+  width: 34px;
+  height: 26px;
+}
+
+.route-cell {
+  display: block;
+  width: 26px;
+  height: 18px;
+  margin: 0 auto;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.route-cell:hover:not(.is-on) {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.route-cell.is-on {
+  background: #ff8a00;
+}
+
+/* Out 1-16: taps por color (Xotpos), filled = +Mute, polaridad */
+.route-cell--pol {
+  width: 22px;
+  height: 18px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+}
+
+.route-cell--pol.is-on {
+  background: #2ee06a;
+  border-color: #2ee06a;
+}
+
+.route-cell.is-on.tap-0,
+.route-cell.is-on.tap-1 { --tap: #ff3b30; }
+.route-cell.is-on.tap-2,
+.route-cell.is-on.tap-3 { --tap: #2ee06a; }
+.route-cell.is-on.tap-4,
+.route-cell.is-on.tap-5 { --tap: #ffc12c; }
+.route-cell.is-on.tap-6,
+.route-cell.is-on.tap-7 { --tap: #2f6bff; }
+.route-cell.is-on.tap-8 { --tap: #ff3bd4; }
+
+.route-cell.is-on[class*="tap-"] {
+  background: transparent;
+  border: 3px solid var(--tap);
+  box-sizing: border-box;
+}
+
+.route-cell.is-on.tap-1,
+.route-cell.is-on.tap-3,
+.route-cell.is-on.tap-5,
+.route-cell.is-on.tap-7 {
+  background: var(--tap);
+}
+
+.tap-menu {
+  position: fixed;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  min-width: 170px;
+  padding: 4px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.tap-menu button {
+  padding: 5px 10px;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tap-menu button:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* Out 1-16: dos bloques apilados, cada uno con scroll horizontal propio */
+/* Out 1-16: tabla continua con scroll lateral que salta de bloque en bloque */
+.route-scroll--out {
+  scroll-snap-type: x mandatory;
+}
+
+.route-scroll--out .route-snap {
+  scroll-snap-align: start;
+}
+
+.route-rowhead {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--bg-card);
+  min-width: 58px;
+}
+
+.route-table tr:hover .route-rowhead {
+  background: var(--bg-card);
+}

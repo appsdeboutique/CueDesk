@@ -3,6 +3,24 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 Versionado semántico (SemVer): `MAJOR.MINOR.PATCH`.
 
+## [1.0.20] — 2026-10-14
+
+### Added
+- **Vista Routing**: barra de once subpestañas (Inputs, AES50, Card, XLR, Out 1-16, Out Delay, Aux Out, Ultranet, iQ Setup, User In, User Out), con la distribución de X32-Edit.
+- **Inputs**: rejilla de rutas de canal (`/config/routing/IN/…`), con grupos Local, AES50 A/B, Card y User In. Desplegables de Aux In Remap (`/config/routing/IN/AUX`) y Play remap (`/config/routing/PLAY/AUX`).
+- **AES50**: salidas de las seis secciones de cada banco (`/config/routing/AES50A|B/…`).
+- **Card**: cuatro filas de salidas (`/config/routing/CARD/…`).
+- **XLR**: cuatro filas de salidas (`/config/routing/OUT/…`).
+- **Out 1-16**: tabla continua de origen por salida física (`/outputs/main/NN/src`) con Phase (`/invert`), tap por fila (`/pos`) y desplegable **Default Signal Tap** guardado en local. El scroll lateral ancla al inicio de cada bloque (Off, Main, Mix Bus, Matrix, Dir Ch, Dir Aux, Dir FX, Monitor) para que ninguna sección quede cortada.
+- Tap por botón derecho o pulsación larga sobre la celda activa; el color del anillo indica el punto de la señal (`Xotpos`), relleno en los modos "+ Mute".
+
+### Changed
+- **Fraguado de valores de `src`**: confirmados con `scene.scn` (Off 0, Main L/R 1/2, Mix 01-04 = 4-7, Dir Ch 01-16 = 26-41, Dir Aux 01-02 = 58-59, Dir FX 1L-3R = 66-71, Monitor L/R 74/75). El resto se deduce por secuencia y se marca "valor por verificar" en el tooltip.
+- Las celdas de **User In** se habilitan siguiendo el patrón de Card (valores 20-23 y 13-15), pendientes de verificar en consola.
+
+### Notes
+- Out Delay, Aux Out, Ultranet, iQ Setup, User In y User Out quedan como pestañas con texto de pendiente hasta confirmar sus rutas OSC.
+
 ## [1.0.19] — 2026-10-14
 
 ### Added

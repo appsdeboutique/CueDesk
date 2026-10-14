@@ -293,17 +293,57 @@
       </section>
 
       <!-- ----------------------------- ROUTING ---------------------------- -->
-      <section class="view view--empty" data-view-panel="routing" hidden>
-        <div class="ph">
-          <span class="ph__icon" aria-hidden="true">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-              <path d="M4 6h5l4 6h7M4 18h5l4-6M17 9l3 3-3 3"
-                    stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </span>
-          <h2>Routing</h2>
-          <p>Matriz de asignaciones de entrada/salida (AES50, CARD, OUT, P16).
-             Expone <code>/config/routing/…</code> sobre el mismo bus OSC.</p>
+      <section class="view view--routing" data-view-panel="routing" hidden>
+        <div class="viewbar routing__bar">
+          <nav class="viewbar-tabs" role="tablist" aria-label="Routing">
+            <button type="button" class="tab is-active" role="tab" aria-selected="true" data-routing-tab="inputs">Inputs</button>
+            <button type="button" class="tab" role="tab" aria-selected="false" data-routing-tab="aes50">AES50</button>
+            <button type="button" class="tab" role="tab" aria-selected="false" data-routing-tab="card">Card</button>
+            <button type="button" class="tab" role="tab" aria-selected="false" data-routing-tab="xlr">XLR</button>
+            <button type="button" class="tab" role="tab" aria-selected="false" data-routing-tab="out">Out 1-16</button>
+            <button type="button" class="tab" role="tab" aria-selected="false" data-routing-tab="outdelay">Out Delay</button>
+            <button type="button" class="tab" role="tab" aria-selected="false" data-routing-tab="auxout">Aux Out</button>
+            <button type="button" class="tab" role="tab" aria-selected="false" data-routing-tab="ultranet">Ultranet</button>
+            <button type="button" class="tab" role="tab" aria-selected="false" data-routing-tab="iq">iQ Setup</button>
+            <button type="button" class="tab" role="tab" aria-selected="false" data-routing-tab="userin">User In</button>
+            <button type="button" class="tab" role="tab" aria-selected="false" data-routing-tab="userout">User Out</button>
+          </nav>
+        </div>
+        <div class="routing__body">
+          <section class="routing__pane is-active" data-routing-pane="inputs">
+            <div class="routing__extra" data-routing-extra="inputs"></div>
+            <div data-routing-render="inputs"></div>
+          </section>
+          <section class="routing__pane" data-routing-pane="aes50" hidden>
+            <div data-routing-render="aes50"></div>
+          </section>
+          <section class="routing__pane" data-routing-pane="card" hidden>
+            <div data-routing-render="card"></div>
+          </section>
+          <section class="routing__pane" data-routing-pane="xlr" hidden>
+            <div data-routing-render="xlr"></div>
+          </section>
+          <section class="routing__pane" data-routing-pane="out" hidden>
+            <div data-routing-render="out"></div>
+          </section>
+          <section class="routing__pane" data-routing-pane="outdelay" hidden>
+            <p class="setup__hint">Pendiente: rutas de Out Delay no confirmadas.</p>
+          </section>
+          <section class="routing__pane" data-routing-pane="auxout" hidden>
+            <p class="setup__hint">Pendiente: rutas de Aux Out no confirmadas.</p>
+          </section>
+          <section class="routing__pane" data-routing-pane="ultranet" hidden>
+            <p class="setup__hint">Pendiente: rutas de Ultranet no confirmadas.</p>
+          </section>
+          <section class="routing__pane" data-routing-pane="iq" hidden>
+            <p class="setup__hint">Pendiente: iQ Setup (Turbosound) no confirmado en OSC.</p>
+          </section>
+          <section class="routing__pane" data-routing-pane="userin" hidden>
+            <p class="setup__hint">Pendiente: User In no confirmado en los headers.</p>
+          </section>
+          <section class="routing__pane" data-routing-pane="userout" hidden>
+            <p class="setup__hint">Pendiente: User Out (/config/userrout/out/NN) con codificación de valores por confirmar.</p>
+          </section>
         </div>
       </section>
 
@@ -367,7 +407,7 @@
     <!-- ================================ FOOTER ============================ -->
     <footer class="footer">
       <p>2026 StegeNet Systems. All rights reserved.</p>
-      <span class="footer__version" title="CueDesk · versión de la interfaz">v1.0.19</span>
+      <span class="footer__version" title="CueDesk · versión de la interfaz">v1.0.20</span>
     </footer>
   </div>
 
