@@ -1413,21 +1413,24 @@ CueDesk.app = { view: "mixer" };
   /* ------------------------------------------------------- GAIN GUARD */
 
   /* Pantalla emergente sobre el escenario: mismo esqueleto que Setup › Preamps
-     (bloques de 8 canales) pero sin "Global options". Por canal, en el sitio
-     del 48V va un conmutador deslizante RMS/LUFS y en el del Ø un desplegable
-     de umbral cuyas opciones dependen del modo (±3/±5 dB en RMS, -18/-23 LUFS en
-     LUFS). Son preferencias locales (localStorage); su envío a consola está
-     pendiente de definir. */
+     (bloques de 8 canales) pero sin "Global options". En la cabecera, junto al
+     selector de bloque, va el conmutador de Monitor Guard (encendido o no). Por
+     canal: conmutador deslizante RMS/LUFS en el sitio del 48V y desplegable de
+     umbral —con "Off" en ambas escalas— en el del Ø. Son preferencias locales
+     (localStorage); su envío a consola está pendiente de definir. */
   const GG_KEY = "cuedesk.gainguard";
   const GG_MODES = [
-    { id: "rms", label: "RMS", options: ["±3 dB", "±5 dB"] },
-    { id: "lufs", label: "LUFS", options: ["-18 LUFS", "-23 LUFS"] },
+    { id: "rms", label: "RMS", options: ["Off", "±3 dB", "±5 dB"] },
+    { id: "lufs", label: "LUFS", options: ["Off", "-18 LUFS", "-23 LUFS"] },
   ];
 
   function ggMode(id) {
     return GG_MODES[id === "lufs" ? 1 : 0];
   }
 
+  /* Estado local: { mon, ch: [{ mode, opt } × 32] }. Las versiones previas
+     guardaban sólo el array de canales y sus escalas no llevaban "Off": al
+     cargar ese formato el umbral guardado se desplaza una posición. */
   function ggLoad() {
     let raw = null;
     try {
@@ -1435,13 +1438,19 @@ CueDesk.app = { view: "mixer" };
     } catch (_) {
       raw = null;
     }
-    return Array.from({ length: 32 }, function (_, i) {
-      const c = raw && raw[i] ? raw[i] : null;
-      const mode = c && c.mode === "lufs" ? "lufs" : "rms";
-      const max = ggMode(mode).options.length - 1;
-      const opt = c && Number.isInteger(c.opt) && c.opt >= 0 && c.opt <= max ? c.opt : 0;
-      return { mode: mode, opt: opt };
-    });
+    const legacy = Array.isArray(raw);
+    const chans = legacy ? raw : raw && Array.isArray(raw.ch) ? raw.ch : [];
+    return {
+      mon: !!(raw && raw.mon),
+      ch: Array.from({ length: 32 }, function (_, i) {
+        const c = chans[i] ? chans[i] : null;
+        const mode = c && c.mode === "lufs" ? "lufs" : "rms";
+        const max = ggMode(mode).options.length - 1;
+        let opt = c && Number.isInteger(c.opt) && c.opt >= 0 && c.opt <= max ? c.opt : 0;
+        if (legacy && c && Number.isInteger(c.opt)) opt = Math.min(opt + 1, max);
+        return { mode: mode, opt: opt };
+      }),
+    };
   }
 
   function ggSave(state) {
@@ -1475,7 +1484,7 @@ CueDesk.app = { view: "mixer" };
       b.addEventListener("click", function () {
         if (ch.mode === m.id) return;
         ch.mode = m.id;
-        ch.opt = 0; // el umbral de la otra escala no existe: vuelve al primero
+        ch.opt = 0; // el umbral de la otra escala no existe: vuelve a "Off"
         sync();
         save();
       });
@@ -1484,7 +1493,8 @@ CueDesk.app = { view: "mixer" };
     });
 
     /* Umbral (ocupa el sitio del Ø): desplegable nativo, como los select de
-       Setup, cuyas opciones dependen del modo del conmutador. */
+       Setup. Sus opciones dependen del modo del conmutador y llevan "Off" en
+       primer lugar. */
     const pick = document.createElement("select");
     pick.className = "gg-select";
     pick.setAttribute("aria-label", "Umbral · canal " + pad);
@@ -1498,7 +1508,7 @@ CueDesk.app = { view: "mixer" };
     num.textContent = pad;
 
     function sync() {
-      sw.dataset.mode = ch.mode;
+      sw.dataset.pos = ch.mode === "lufs" ? "1" : "0";
       opts.forEach(function (b) {
         const on = b.dataset.ggMode === ch.mode;
         b.classList.toggle("is-on", on);
@@ -1532,13 +1542,40 @@ CueDesk.app = { view: "mixer" };
     };
     const blocks = [];
 
+    /* Monitor Guard (cabecera): el mismo conmutador que los canales, pero uno
+       solo para toda la pantalla. De momento es estado local, como el resto. */
+    const monSw = document.querySelector("[data-gg-monitor]");
+    const monOpts = monSw
+      ? Array.prototype.slice.call(monSw.querySelectorAll("[data-gg-monitor-opt]"))
+      : [];
+
+    function syncMon() {
+      monSw.dataset.pos = state.mon ? "1" : "0";
+      monOpts.forEach(function (b) {
+        const on = (b.dataset.ggMonitorOpt === "on") === state.mon;
+        b.classList.toggle("is-on", on);
+        b.setAttribute("aria-pressed", on ? "true" : "false");
+      });
+    }
+
+    monOpts.forEach(function (b) {
+      b.addEventListener("click", function () {
+        const on = b.dataset.ggMonitorOpt === "on";
+        if (state.mon === on) return;
+        state.mon = on;
+        syncMon();
+        save();
+      });
+    });
+    if (monSw) syncMon();
+
     PREAMP_BLOCKS.forEach(function (b, i) {
       const view = document.createElement("div");
       view.className = "setup__strips";
       view.hidden = i !== 0;
       for (let k = 0; k < 8; k++) {
         const index = b.base + k;
-        view.appendChild(ggStrip(state[index], index, save));
+        view.appendChild(ggStrip(state.ch[index], index, save));
       }
       box.appendChild(view);
       blocks.push(view);

@@ -3,6 +3,15 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 Versionado semántico (SemVer): `MAJOR.MINOR.PATCH`.
 
+## [1.0.23] — 2026-10-14
+
+### Added
+- **GainGuard · Monitor Guard**: la cabecera de la pantalla añade, junto al selector de bloque, un conmutador de encendido (OFF | ON) para Monitor Guard.
+- **GainGuard · «Off» en los umbrales**: las dos escalas del desplegable por canal empiezan por «Off» —RMS: Off · ±3 dB · ±5 dB; LUFS: Off · -18 LUFS · -23 LUFS—, de modo que el umbral puede quedar sin límite. Al cambiar de escala el umbral vuelve a «Off», porque el de la otra no existe.
+
+### Changed
+- **Ajustes de GainGuard**: el estado local guarda también Monitor Guard (`{ mon, ch: [{ mode, opt }] }`). Lo guardado por versiones anteriores se migra al cargarlo: como el desplegable ha ganado la opción «Off» delante, el umbral se desplaza una posición y cada canal conserva el que tenía.
+
 ## [1.0.22] — 2026-10-14
 
 ### Added

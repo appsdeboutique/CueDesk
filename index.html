@@ -400,9 +400,10 @@
 
       <!-- --------------------------- GAIN GUARD --------------------------- -->
       <!-- Pantalla emergente sobre el escenario: mismo esqueleto que Setup ›
-           Preamps (bloques de 8 canales) pero sin "Global options". En el sitio
-           del 48V va un conmutador deslizante RMS/LUFS y en el del Ø un
-           desplegable de umbral cuyas opciones dependen del modo elegido.
+           Preamps (bloques de 8 canales) pero sin "Global options". Además del
+           selector de bloque lleva el de Monitor Guard (encendido o no). Por
+           canal: conmutador deslizante RMS/LUFS en el sitio del 48V y desplegable
+           de umbral —con "Off" en las dos escalas— en el del Ø.
            El contenido lo construye app.js (renderGainGuard). -->
       <section class="gg" id="gg-panel" hidden role="dialog" aria-label="GainGuard">
         <div class="gg__head">
@@ -411,6 +412,17 @@
             <span>Canal block</span>
             <select data-gg-block aria-label="Canal block"></select>
           </label>
+          <div class="gg-monitor">
+            <span class="gg-monitor__label" id="gg-monitor-label">Monitor Guard</span>
+            <div class="gg-switch gg-switch--sm" role="group" data-gg-monitor
+                 aria-labelledby="gg-monitor-label">
+              <span class="gg-switch__thumb" aria-hidden="true"></span>
+              <button type="button" class="gg-switch__opt" data-gg-monitor-opt="off"
+                      aria-pressed="true">OFF</button>
+              <button type="button" class="gg-switch__opt" data-gg-monitor-opt="on"
+                      aria-pressed="false">ON</button>
+            </div>
+          </div>
           <button type="button" class="gg__close" data-action="gg-close"
                   aria-label="Cerrar GainGuard" title="Cerrar (Esc)">✕</button>
         </div>
@@ -423,7 +435,7 @@
     <!-- ================================ FOOTER ============================ -->
     <footer class="footer">
       <p>© 2026 StageNet Systems. All rights reserved.</p>
-      <span class="footer__version" title="CueDesk · versión de la interfaz">v1.0.22</span>
+      <span class="footer__version" title="CueDesk · versión de la interfaz">v1.0.23</span>
     </footer>
   </div>
 
