@@ -249,6 +249,8 @@ CueDesk.Mixer = (function () {
           color: "/ch/" + id + "/config/color",
           solo: "/-stat/solosw/" + id,       // ch01 → solosw/01
           gain: "/headamp/" + p3(n - 1) + "/gain",
+          phantom: "/headamp/" + p3(n - 1) + "/phantom",
+          invert: "/ch/" + id + "/preamp/invert",
         };
       case "aux":
         return {
@@ -259,6 +261,7 @@ CueDesk.Mixer = (function () {
           color: "/auxin/" + id + "/config/color",
           solo: "/-stat/solosw/" + (32 + n),  // auxin ids 32…39 (+1)
           trim: "/auxin/" + id + "/preamp/trim",
+          invert: "/auxin/" + id + "/preamp/invert",
         };
       case "fx":
         return {
@@ -356,6 +359,8 @@ CueDesk.Mixer = (function () {
       solo: demo ? DEFAULT_SOLO[i] : false,
       voice: voice,
       sim: { L: { level: voice.base }, R: { level: voice.base } },
+      phantom: false,
+      invert: false,
       subs: false,
     };
     store.set(key, m);
@@ -395,6 +400,22 @@ CueDesk.Mixer = (function () {
       lifeUnsubs.push(
         OSC.on(m.paths.gain, function (v) {
           m.gainNorm = dB.clamp01((parseFloat(v) + 12) / 72);
+        })
+      );
+    }
+    if (m.paths.phantom) {
+      lifeUnsubs.push(
+        OSC.on(m.paths.phantom, function (v) {
+          m.phantom = isOn(v);
+          refreshPreButtons(m);
+        })
+      );
+    }
+    if (m.paths.invert) {
+      lifeUnsubs.push(
+        OSC.on(m.paths.invert, function (v) {
+          m.invert = isOn(v);
+          refreshPreButtons(m);
         })
       );
     }
@@ -471,6 +492,15 @@ CueDesk.Mixer = (function () {
 
   function liveStrip(m) {
     return rack.querySelector('[data-unit="' + m.key + '"]');
+  }
+
+  function refreshPreButtons(m) {
+    const el = liveStrip(m);
+    if (!el) return;
+    const ph = el.querySelector('[data-role="phantom"]');
+    if (ph) setToggle(ph, m.phantom, m.phantom ? 1 : 0);
+    const iv = el.querySelector('[data-role="invert"]');
+    if (iv) setToggle(iv, m.invert, m.invert ? 1 : 0);
   }
 
   function refreshMute(m) {
@@ -592,6 +622,24 @@ CueDesk.Mixer = (function () {
       .join("");
   }
 
+  /* Modo GAIN: el hueco del pan lleva 48V (sólo canales) y Ø (canales y aux) */
+  function preHTML(m) {
+    const ph = m.paths.phantom
+      ? '<button type="button" class="btn-pre btn-pre--48v' + (m.phantom ? " is-on" : "") + '" data-role="phantom" ' +
+        'data-osc-path="' + m.paths.phantom + '" data-osc-address="' + m.paths.phantom + '" data-osc-type="i" ' +
+        'data-state-value="' + (m.phantom ? 1 : 0) + '" aria-pressed="' + !!m.phantom + '" ' +
+        'title="Phantom 48V — ' + m.paths.phantom + '">48V</button>'
+      : "";
+    return (
+      '<div class="strip__pre">' + ph +
+        '<button type="button" class="btn-pre btn-pre--pol' + (m.invert ? " is-on" : "") + '" data-role="invert" ' +
+          'data-osc-path="' + m.paths.invert + '" data-osc-address="' + m.paths.invert + '" data-osc-type="i" ' +
+          'data-state-value="' + (m.invert ? 1 : 0) + '" aria-pressed="' + !!m.invert + '" ' +
+          'title="Polaridad — ' + m.paths.invert + '">Ø</button>' +
+      "</div>"
+    );
+  }
+
   function stripHTML(m) {
     const gs = gainMode ? gainSpec(m) : null;
     const isGain = !!gs;
@@ -611,7 +659,11 @@ CueDesk.Mixer = (function () {
               'aria-label="Etiqueta del canal ' + m.num + '">' +
           "</div>" +
         "</header>" +
-        (m.hasPan ? panHTML(m) : '<div class="strip__gap" aria-hidden="true"></div>') +
+        (isGain && m.paths.invert
+          ? preHTML(m)
+          : m.hasPan && !isGain
+            ? panHTML(m)
+            : '<div class="strip__gap" aria-hidden="true"></div>') +
         // Núcleo: fader a la izquierda, vúmetro mono a la derecha (canal mono)
         '<div class="strip__core">' +
           '<div class="fader fader--scale' + (isGain ? " is-gain" : "") + '" data-slider="vertical" data-role="fader" ' +
@@ -670,8 +722,8 @@ CueDesk.Mixer = (function () {
         : function (v) { return parseFloat(v); },
     });
 
-    /* Panorama */
-    if (m.hasPan) {
+    /* Panorama (no existe en GAIN: ese hueco es de 48V / Ø) */
+    if (m.hasPan && !isGain) {
       const panEl = section.querySelector('[data-role="pan"]');
       Controls.mount(panEl, {
         path: m.paths.pan,
@@ -692,6 +744,26 @@ CueDesk.Mixer = (function () {
       setToggle(muteBtn, m.muted, m.muted ? 0 : 1);
       OSC.send(m.paths.on, m.muted ? 0 : 1, "i", { commit: true });
     });
+
+    /* 48V y Ø (GAIN). 48V pide confirmación al activarlo. */
+    const phBtn = section.querySelector('[data-role="phantom"]');
+    if (phBtn) {
+      phBtn.addEventListener("click", function () {
+        const next = !m.phantom;
+        if (next && !window.confirm("Activar 48V en esta entrada puede dañar micrófonos de cinta o equipos no balanceados. ¿Continuar?")) return;
+        m.phantom = next;
+        setToggle(phBtn, next, next ? 1 : 0);
+        OSC.send(m.paths.phantom, next ? 1 : 0, "i", { commit: true });
+      });
+    }
+    const ivBtn = section.querySelector('[data-role="invert"]');
+    if (ivBtn) {
+      ivBtn.addEventListener("click", function () {
+        m.invert = !m.invert;
+        setToggle(ivBtn, m.invert, m.invert ? 1 : 0);
+        OSC.send(m.paths.invert, m.invert ? 1 : 0, "i", { commit: true });
+      });
+    }
 
     /* Solo */
     const soloBtn = section.querySelector('[data-role="solo"]');

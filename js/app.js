@@ -187,7 +187,7 @@ CueDesk.app = { view: "mixer" };
 
   /* ------------------------------------------------------------- Setup */
 
-  const SETUP_CONFIRM = /^\/-prefs\/(clockrate|clocksource|card\/|remote\/ioenable)/;
+  const SETUP_CONFIRM = /^(\/-prefs\/(clockrate|clocksource|card\/|remote\/ioenable)|\/headamp\/\d{3}\/phantom)/;
   const SETUP_CONFIRM_MSG =
     "Este cambio puede interrumpir el audio o la conexión de la consola. ¿Continuar?";
   const SETUP_LOCAL_KEY = "cuedesk.setup.local";
@@ -415,36 +415,23 @@ CueDesk.app = { view: "mixer" };
     lab48.appendChild(cb);
     lab48.appendChild(txt48);
 
-    const readout = document.createElement("output");
-    readout.className = "setup__db";
-    const show = function (v) {
-      const x = Number(v);
-      readout.textContent = (x >= 0 ? "+" : "") + x.toFixed(1) + " dB";
-    };
-
-    const fader = document.createElement("input");
-    fader.type = "range";
-    fader.className = "setup__vfader";
-    fader.min = "-12";
-    fader.max = "60";
-    fader.step = "0.5";
-    fader.value = "0";
-    fader.setAttribute("aria-label", "Ganancia CH " + pad);
-    fader.dataset.setupOsc = "/headamp/" + idx + "/gain";
-    fader.dataset.setupType = "f";
-    fader.addEventListener("input", function () {
-      show(fader.value);
-    });
-    CueDesk.OSC.on("/headamp/" + idx + "/gain", show);
-    show(0);
+    const labInv = document.createElement("label");
+    labInv.className = "setup__48v";
+    const cbInv = document.createElement("input");
+    cbInv.type = "checkbox";
+    cbInv.dataset.setupOsc = "/ch/" + pad + "/preamp/invert";
+    cbInv.dataset.setupType = "i";
+    const txtInv = document.createElement("span");
+    txtInv.textContent = "Ø";
+    labInv.appendChild(cbInv);
+    labInv.appendChild(txtInv);
 
     const num = document.createElement("span");
     num.className = "setup__chnum";
     num.textContent = pad;
 
     strip.appendChild(lab48);
-    strip.appendChild(readout);
-    strip.appendChild(fader);
+    strip.appendChild(labInv);
     strip.appendChild(num);
     return strip;
   }
@@ -489,14 +476,6 @@ CueDesk.app = { view: "mixer" };
       const wrap = document.createElement("div");
       wrap.className = "setup__strips";
       wrap.hidden = i !== 0;
-      const scale = document.createElement("div");
-      scale.className = "setup__scale";
-      [60, 48, 36, 24, 12, 0, -12].forEach(function (v) {
-        const s = document.createElement("span");
-        s.textContent = String(v);
-        scale.appendChild(s);
-      });
-      wrap.appendChild(scale);
       for (let k = 0; k < 8; k++) {
         const n = b.base + k + 1;
         wrap.appendChild(preampStrip(n, String(n - 1).padStart(3, "0")));

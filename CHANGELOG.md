@@ -3,6 +3,20 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 Versionado semántico (SemVer): `MAJOR.MINOR.PATCH`.
 
+## [1.0.19] — 2026-10-14
+
+### Added
+- **Modo GAIN de canales**: el hueco del pan muestra **48V** (`/headamp/NNN/phantom`) y **Ø** (`/ch/NN/preamp/invert`). Aux muestra sólo **Ø** (`/auxin/NN/preamp/invert`).
+- Botones 48V y Ø con el mismo aspecto que Mute y Solo: activo en **rojo** (48V) y **verde** (Ø).
+- 48V pide confirmación al activarlo.
+
+### Changed
+- **Setup › Preamps**: se eliminan los faders de ganancia y la escala. Cada canal tiene 48V y Ø; la ganancia se controla desde Mixer en modo GAIN.
+- Los cambios de 48V en Setup también piden confirmación.
+
+### Removed
+- En modo GAIN ya no aparece el pan en la tira de canal o aux.
+
 ## [1.0.18] — 2026-10-13
 
 ### Changed
