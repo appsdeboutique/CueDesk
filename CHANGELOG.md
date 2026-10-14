@@ -3,6 +3,20 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 Versionado semántico (SemVer): `MAJOR.MINOR.PATCH`.
 
+## [1.0.21] — 2026-10-14
+
+### Added
+- **Out 1-16 · leyenda de señal**: el pie dibuja los colores del punto de señal (`Xotpos`), con un anillo por tap y un círculo relleno para su variante "+ Mute". Post Fader sólo lleva anillo porque no existe "+ Mute".
+
+### Changed
+- **Out 1-16 · Output y Phase fijos**: ambas columnas viven en una tabla aparte, fuera del área que se desplaza, así que ya no desaparecen al desplazar en horizontal. El scroll lateral pasa a ser continuo: se elimina el anclaje por bloques.
+- **Out 1-16 · alto de fila adaptativo**: la matriz se comprime al hueco disponible para no necesitar scroll vertical en PC (38 px en pantallas altas, hasta 22 px en portátiles de 768 px). En pantallas táctiles se mantiene un mínimo de 32 px.
+- **Pie de Out 1-16**: el rótulo *Default Signal Tap* pasa a la derecha de su desplegable y la leyenda ocupa el hueco de la izquierda.
+- **Setup y Routing, adaptación a tablet de 10"**: rejillas fluidas, objetivos táctiles de 36-44 px, barras de subpestañas con scroll lateral, celdas de rejilla compactas, `:hover` neutralizado en pantallas táctiles y limpieza de reglas muertas.
+
+### Fixed
+- **Out 1-16**: las dos tablas quedaban desalineadas 16,8 px porque la fila de cabecera vacía de la tabla fija medía 9 px en vez de 25,8.
+
 ## [1.0.20] — 2026-10-14
 
 ### Added

@@ -884,7 +884,7 @@ CueDesk.app = { view: "mixer" };
   /* ----------------------------------------------------------- Out 1-16 */
 
   /* Fuentes de /outputs/main/NN/src (confirmado con scene.scn).
-     Una sola tabla continua; el scroll lateral avanza de bloque en bloque. */
+     Una sola tabla continua; la columna de destinos no se desplaza. */
   const OUT_COLS = [
     { value: 0, group: "", label: "Off" },
     { value: 1, group: "Main", label: "L" },
@@ -912,11 +912,6 @@ CueDesk.app = { view: "mixer" };
   OUT_COLS.push({ value: 75, group: "Monitor", label: "R", verifiedFrom: "main" });
   OUT_COLS.push({ value: 76, group: "Monitor", label: "TB", unverified: true });
 
-  /* Marca la primera columna de cada grupo como punto de anclaje del scroll */
-  OUT_COLS.forEach(function (c, i) {
-    c.snap = i === 0 || OUT_COLS[i - 1].group !== c.group;
-  });
-
   /* Enum Xotpos (/outputs/main/NN/pos) */
   const OUT_TAPS = [
     "Input/LC", "Input/LC + Mute", "Pre EQ", "Pre EQ + Mute", "Post EQ",
@@ -927,6 +922,48 @@ CueDesk.app = { view: "mixer" };
   function outDefaultTap() {
     const v = parseInt(localStorage.getItem(OUT_TAP_KEY), 10);
     return isFinite(v) && v >= 0 && v < OUT_TAPS.length ? v : 8;
+  }
+
+  /* Leyenda de la matriz: los mismos colores que las píldoras (anillo = tap
+     normal, relleno = variante + Mute del enum Xotpos) */
+  const OUT_LEGEND = [
+    { label: "Input/LC", tap: 0, mute: 1 },
+    { label: "Pre EQ", tap: 2, mute: 3 },
+    { label: "Post EQ", tap: 4, mute: 5 },
+    { label: "Pre Fader", tap: 6, mute: 7 },
+    { label: "Post Fader", tap: 8 },
+  ];
+
+  function outLegend() {
+    const box = document.createElement("span");
+    box.className = "out-legend";
+    box.title = "Anillo = tap normal · relleno = tap + Mute";
+    OUT_LEGEND.forEach(function (item) {
+      const el = document.createElement("span");
+      el.className = "out-legend__item";
+      const dots = document.createElement("span");
+      dots.className = "out-legend__dots";
+      const plain = document.createElement("i");
+      plain.className = "out-legend__dot tap-" + item.tap;
+      plain.title = item.label;
+      dots.appendChild(plain);
+      if (item.mute !== undefined) {
+        const muted = document.createElement("i");
+        muted.className = "out-legend__dot out-legend__dot--on tap-" + item.mute;
+        muted.title = item.label + " + Mute";
+        dots.appendChild(muted);
+      }
+      el.appendChild(dots);
+      const text = document.createElement("span");
+      text.textContent = item.label;
+      el.appendChild(text);
+      box.appendChild(el);
+    });
+    const note = document.createElement("span");
+    note.className = "out-legend__note";
+    note.textContent = "relleno = +Mute";
+    box.appendChild(note);
+    return box;
   }
 
   function markOut(row) {
@@ -1008,6 +1045,59 @@ CueDesk.app = { view: "mixer" };
     return td;
   }
 
+  /* Ajuste de alto: en PC el panel se comprime hasta caber sin scroll
+     vertical; en pantallas táctiles se conserva un objetivo cómodo. */
+  let outFit = null;
+  let fitPending = false;
+
+  function queueOutFit() {
+    if (fitPending) return;
+    fitPending = true;
+    window.requestAnimationFrame(function () {
+      fitPending = false;
+      fitOutGrid();
+    });
+  }
+
+  function fitOutGrid() {
+    if (!outFit || !outFit.pane || outFit.pane.hidden) return;
+    const grid = outFit.grid;
+    if (!grid || !grid.isConnected) return;
+    const body = document.querySelector(".routing__body");
+    if (!body) return;
+    const cs = getComputedStyle(body);
+    const avail = body.clientHeight -
+      (parseFloat(cs.paddingTop) || 0) - (parseFloat(cs.paddingBottom) || 0);
+    if (avail < 80) return;
+
+    const frows = grid.querySelectorAll(".out-fixed tr");
+    const srows = grid.querySelectorAll(".route-scroll--out tr");
+    if (frows.length < 3 || srows.length < 3) return;
+
+    const headH = frows[0].getBoundingClientRect().height + frows[1].getBoundingClientRect().height;
+    const dataRows = srows.length - 2;
+    const cur = srows[2].getBoundingClientRect().height || 38;
+    /* Todo lo que no depende del alto de fila: bordes, barra horizontal y pie */
+    const fixedPart = outFit.pane.scrollHeight - headH - dataRows * cur;
+    const estR = Math.floor((avail - headH - fixedPart) / dataRows);
+
+    const coarse = !!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
+    const minR = coarse ? 32 : 20;
+    const cap = window.matchMedia && window.matchMedia("(max-width: 1280px)").matches ? 36 : 38;
+
+    let r = Math.max(minR, Math.min(cap, estR));
+    grid.style.setProperty("--out-row-h", r + "px");
+
+    /* Ajuste fino medido: la estimación no ve márgenes ni la barra del cuerpo,
+       así que se corrige con lo que realmente desborda. */
+    for (let guard = 0; guard < 4 && r > minR; guard++) {
+      const over = body.scrollHeight - body.clientHeight;
+      if (over <= 0) break;
+      r = Math.max(minR, r - Math.max(1, Math.ceil(over / dataRows)));
+      grid.style.setProperty("--out-row-h", r + "px");
+    }
+  }
+
   function renderOutGrid(box) {
     const rows = [];
     for (let n = 1; n <= 16; n++) {
@@ -1044,19 +1134,42 @@ CueDesk.app = { view: "mixer" };
       });
     });
 
+    /* --- Columna fija: destino + Phase. Vive fuera del área que se desplaza,
+       así nunca se pierde al hacer scroll horizontal. --- */
+    const fixed = document.createElement("div");
+    fixed.className = "out-fixed";
+    const ftable = document.createElement("table");
+    ftable.className = "route-table";
+
+    const fhead1 = document.createElement("tr");
+    const fcorner = document.createElement("th");
+    fcorner.className = "route-rowhead";
+    fcorner.textContent = "Output";
+    fhead1.appendChild(fcorner);
+    const fphase = document.createElement("th");
+    fphase.textContent = "Phase";
+    fhead1.appendChild(fphase);
+    ftable.appendChild(fhead1);
+
+    const fhead2 = document.createElement("tr");
+    const fhead2a = document.createElement("th");
+    fhead2a.className = "route-rowhead";
+    /* Espacio duro: sin contenido la fila mediría 9 px en vez de 25,8 y las
+       dos tablas dejarían de alinearse. */
+    fhead2a.textContent = "\u00A0";
+    const fhead2b = document.createElement("th");
+    fhead2b.textContent = "\u00A0";
+    fhead2.appendChild(fhead2a);
+    fhead2.appendChild(fhead2b);
+    ftable.appendChild(fhead2);
+
+    /* --- Matriz de fuentes: aquí sí se desplaza en horizontal --- */
     const wrap = document.createElement("div");
     wrap.className = "route-scroll route-scroll--out";
     const table = document.createElement("table");
     table.className = "route-table";
 
     const head1 = document.createElement("tr");
-    const corner = document.createElement("th");
-    corner.className = "route-rowhead";
-    corner.textContent = "Output";
-    head1.appendChild(corner);
-    const phaseTop = document.createElement("th");
-    phaseTop.textContent = "Phase";
-    head1.appendChild(phaseTop);
     let i = 0;
     while (i < OUT_COLS.length) {
       let j = i;
@@ -1064,31 +1177,25 @@ CueDesk.app = { view: "mixer" };
       const th = document.createElement("th");
       th.colSpan = j - i + 1;
       th.textContent = OUT_COLS[i].group;
-      if (OUT_COLS[i].snap) th.classList.add("route-snap");
       head1.appendChild(th);
       i = j + 1;
     }
     table.appendChild(head1);
 
     const head2 = document.createElement("tr");
-    const c2 = document.createElement("th");
-    c2.className = "route-rowhead";
-    head2.appendChild(c2);
-    head2.appendChild(document.createElement("th"));
     OUT_COLS.forEach(function (c) {
       const th = document.createElement("th");
       th.textContent = c.label;
-      if (c.snap) th.classList.add("route-snap");
       head2.appendChild(th);
     });
     table.appendChild(head2);
 
     rows.forEach(function (row) {
-      const tr = document.createElement("tr");
-      const th = document.createElement("th");
-      th.className = "route-rowhead";
-      th.textContent = "Out " + row.id;
-      tr.appendChild(th);
+      const ftr = document.createElement("tr");
+      const fth = document.createElement("th");
+      fth.className = "route-rowhead route-rowhead--body";
+      fth.textContent = "Out " + row.id;
+      ftr.appendChild(fth);
 
       const tdPol = document.createElement("td");
       const pol = document.createElement("button");
@@ -1101,25 +1208,35 @@ CueDesk.app = { view: "mixer" };
         CueDesk.OSC.send(row.invPath, row.inv, "i", { commit: true });
       });
       tdPol.appendChild(pol);
-      tr.appendChild(tdPol);
+      ftr.appendChild(tdPol);
       row.pol = pol;
+      ftable.appendChild(ftr);
 
+      const tr = document.createElement("tr");
       OUT_COLS.forEach(function (c) {
-        const td = outCell(row, c);
-        if (c.snap) td.classList.add("route-snap");
-        tr.appendChild(td);
+        tr.appendChild(outCell(row, c));
       });
       table.appendChild(tr);
     });
 
+    fixed.appendChild(ftable);
     wrap.appendChild(table);
-    box.appendChild(wrap);
 
-    const bottom = document.createElement("label");
+    const grid = document.createElement("div");
+    grid.className = "out-grid";
+    grid.appendChild(fixed);
+    grid.appendChild(wrap);
+    box.appendChild(grid);
+
+    const bottom = document.createElement("div");
     bottom.className = "setup__row routing__extra";
-    const name = document.createElement("span");
-    name.textContent = "Default Signal Tap";
+    bottom.appendChild(outLegend());
+
+    /* Selector y rótulo: el texto queda a la derecha del desplegable */
+    const side = document.createElement("span");
+    side.className = "out-foot__side";
     const sel = document.createElement("select");
+    sel.setAttribute("aria-label", "Default Signal Tap");
     OUT_TAPS.forEach(function (text, t) {
       const op = document.createElement("option");
       op.value = String(t);
@@ -1132,9 +1249,16 @@ CueDesk.app = { view: "mixer" };
         localStorage.setItem(OUT_TAP_KEY, sel.value);
       } catch (_) {}
     });
-    bottom.appendChild(name);
-    bottom.appendChild(sel);
+    const name = document.createElement("span");
+    name.className = "out-foot__name";
+    name.textContent = "Default Signal Tap";
+    side.appendChild(sel);
+    side.appendChild(name);
+    bottom.appendChild(side);
     box.appendChild(bottom);
+
+    outFit = { grid: grid, pane: box.parentElement, box: box };
+    fitOutGrid();
   }
 
   function initRouting() {
@@ -1144,6 +1268,7 @@ CueDesk.app = { view: "mixer" };
     });
     const outBox = document.querySelector('[data-routing-render="out"]');
     if (outBox) renderOutGrid(outBox);
+    window.addEventListener("resize", queueOutFit);
     const extra = document.querySelector('[data-routing-extra="inputs"]');
     if (extra) {
       const remap = [
@@ -1171,6 +1296,7 @@ CueDesk.app = { view: "mixer" };
         document.querySelectorAll("[data-routing-pane]").forEach(function (pane) {
           pane.hidden = pane.dataset.routingPane !== key;
         });
+        if (key === "out") fitOutGrid();
       });
     });
   }
@@ -1190,6 +1316,7 @@ CueDesk.app = { view: "mixer" };
       document.querySelectorAll("[data-view-panel]").forEach(function (panel) {
         panel.hidden = panel.dataset.viewPanel !== view;
       });
+      fitOutGrid();
     }
 
     tabs.forEach(function (tab) {
