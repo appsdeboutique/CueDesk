@@ -3,6 +3,20 @@
    Paleta Dark Mode FOH (consola estilo X32-Edit / Mixing Station)
    ========================================================================== */
 
+/* --------------------------------------------------------------------------
+   Tipografía de marca: "Beyond The Mountains" (display, un solo peso). Si el
+   equipo ya la tiene instalada se usa la local; si no, la copia que viaja con
+   el proyecto, para que el rótulo se vea igual en tablet.
+   -------------------------------------------------------------------------- */
+@font-face {
+  font-family: "Beyond The Mountains";
+  src: local("Beyond The Mountains"),
+    url("../assets/fonts/beyond-the-mountains.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   /* --- Superficies ------------------------------------------------------ */
   --bg-app: #121214;          /* Fondo general grafito muy oscuro */
@@ -60,6 +74,8 @@
   --font: "Inter", "Segoe UI", system-ui, -apple-system, Roboto,
     "Helvetica Neue", Arial, sans-serif;
   --font-num: "Inter", "Segoe UI", system-ui, sans-serif;
+  /* Rótulo de marca (botón GainGuard): display de un solo peso */
+  --font-display: "Beyond The Mountains", "Inter", "Segoe UI", system-ui, sans-serif;
 
   /* --- Métricas de layout -------------------------------------------------- */
   --topbar-h: 56px;

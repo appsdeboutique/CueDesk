@@ -1410,63 +1410,190 @@ CueDesk.app = { view: "mixer" };
     apply();
   }
 
-  /* ------------------------------------------- X / AUTOMIX / Y */
+  /* ------------------------------------------------------- GAIN GUARD */
 
-  function initAutomix() {
-    const xBtn = document.querySelector('[data-action="amix"][data-group="X"]');
-    const yBtn = document.querySelector('[data-action="amix"][data-group="Y"]');
-    const masterBtn = document.querySelector('[data-action="amix-master"]');
-    if (!xBtn || !yBtn || !masterBtn) return;
+  /* Pantalla emergente sobre el escenario: mismo esqueleto que Setup › Preamps
+     (bloques de 8 canales) pero sin "Global options". Por canal, en el sitio
+     del 48V va un conmutador deslizante RMS/LUFS y en el del Ø un desplegable
+     de umbral cuyas opciones dependen del modo (±3/±5 dB en RMS, -18/-23 LUFS en
+     LUFS). Son preferencias locales (localStorage); su envío a consola está
+     pendiente de definir. */
+  const GG_KEY = "cuedesk.gainguard";
+  const GG_MODES = [
+    { id: "rms", label: "RMS", options: ["±3 dB", "±5 dB"] },
+    { id: "lufs", label: "LUFS", options: ["-18 LUFS", "-23 LUFS"] },
+  ];
 
-    // /config/amixenable/X · /config/amixenable/Y  {OFF, ON}
-    const PATH_X = "/config/amixenable/X";
-    const PATH_Y = "/config/amixenable/Y";
-    const state = { X: false, Y: false };
+  function ggMode(id) {
+    return GG_MODES[id === "lufs" ? 1 : 0];
+  }
 
-    function apply() {
-      setPressed(xBtn, state.X, state.X ? 1 : 0);
-      setPressed(yBtn, state.Y, state.Y ? 1 : 0);
-      const both = state.X && state.Y;
-      masterBtn.classList.toggle("is-active", both);
-      masterBtn.setAttribute("aria-pressed", both ? "true" : "false");
-      masterBtn.setAttribute(
-        "data-state-value",
-        JSON.stringify({ X: state.X ? 1 : 0, Y: state.Y ? 1 : 0 })
-      );
+  function ggLoad() {
+    let raw = null;
+    try {
+      raw = JSON.parse(localStorage.getItem(GG_KEY) || "null");
+    } catch (_) {
+      raw = null;
+    }
+    return Array.from({ length: 32 }, function (_, i) {
+      const c = raw && raw[i] ? raw[i] : null;
+      const mode = c && c.mode === "lufs" ? "lufs" : "rms";
+      const max = ggMode(mode).options.length - 1;
+      const opt = c && Number.isInteger(c.opt) && c.opt >= 0 && c.opt <= max ? c.opt : 0;
+      return { mode: mode, opt: opt };
+    });
+  }
+
+  function ggSave(state) {
+    try {
+      localStorage.setItem(GG_KEY, JSON.stringify(state));
+    } catch (_) {}
+  }
+
+  function ggStrip(ch, index, save) {
+    const pad = String(index + 1).padStart(2, "0");
+    const strip = document.createElement("div");
+    strip.className = "setup__strip";
+
+    /* Conmutador deslizante RMS/LUFS (ocupa el sitio del 48V) */
+    const sw = document.createElement("div");
+    sw.className = "gg-switch";
+    sw.setAttribute("role", "group");
+    sw.setAttribute("aria-label", "Modo de medida · canal " + pad);
+
+    const thumb = document.createElement("span");
+    thumb.className = "gg-switch__thumb";
+    thumb.setAttribute("aria-hidden", "true");
+    sw.appendChild(thumb);
+
+    const opts = GG_MODES.map(function (m) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "gg-switch__opt";
+      b.dataset.ggMode = m.id;
+      b.textContent = m.label;
+      b.addEventListener("click", function () {
+        if (ch.mode === m.id) return;
+        ch.mode = m.id;
+        ch.opt = 0; // el umbral de la otra escala no existe: vuelve al primero
+        sync();
+        save();
+      });
+      sw.appendChild(b);
+      return b;
+    });
+
+    /* Umbral (ocupa el sitio del Ø): desplegable nativo, como los select de
+       Setup, cuyas opciones dependen del modo del conmutador. */
+    const pick = document.createElement("select");
+    pick.className = "gg-select";
+    pick.setAttribute("aria-label", "Umbral · canal " + pad);
+    pick.addEventListener("change", function () {
+      ch.opt = Number(pick.value);
+      save();
+    });
+
+    const num = document.createElement("span");
+    num.className = "setup__chnum";
+    num.textContent = pad;
+
+    function sync() {
+      sw.dataset.mode = ch.mode;
+      opts.forEach(function (b) {
+        const on = b.dataset.ggMode === ch.mode;
+        b.classList.toggle("is-on", on);
+        b.setAttribute("aria-pressed", on ? "true" : "false");
+      });
+      pick.textContent = "";
+      ggMode(ch.mode).options.forEach(function (text, i) {
+        const op = document.createElement("option");
+        op.value = String(i);
+        op.textContent = text;
+        pick.appendChild(op);
+      });
+      pick.value = String(ch.opt);
     }
 
-    xBtn.addEventListener("click", function () {
-      state.X = !state.X;
-      OSC.send(PATH_X, state.X ? 1 : 0, "i", { commit: true });
-      apply();
+    sync();
+    strip.appendChild(sw);
+    strip.appendChild(pick);
+    strip.appendChild(num);
+    return strip;
+  }
+
+  function renderGainGuard() {
+    const box = document.querySelector("[data-gg-blocks]");
+    const pick = document.querySelector("[data-gg-block]");
+    if (!box || !pick) return;
+
+    const state = ggLoad();
+    const save = function () {
+      ggSave(state);
+    };
+    const blocks = [];
+
+    PREAMP_BLOCKS.forEach(function (b, i) {
+      const view = document.createElement("div");
+      view.className = "setup__strips";
+      view.hidden = i !== 0;
+      for (let k = 0; k < 8; k++) {
+        const index = b.base + k;
+        view.appendChild(ggStrip(state[index], index, save));
+      }
+      box.appendChild(view);
+      blocks.push(view);
+
+      const op = document.createElement("option");
+      op.value = String(i);
+      op.textContent = b.label;
+      pick.appendChild(op);
     });
 
-    yBtn.addEventListener("click", function () {
-      state.Y = !state.Y;
-      OSC.send(PATH_Y, state.Y ? 1 : 0, "i", { commit: true });
-      apply();
+    pick.addEventListener("change", function () {
+      blocks.forEach(function (v, i) {
+        v.hidden = i !== Number(pick.value);
+      });
+    });
+  }
+
+  function initGainGuard() {
+    const btn = document.querySelector('[data-action="gainguard"]');
+    const panel = document.getElementById("gg-panel");
+    if (!btn || !panel) return;
+
+    renderGainGuard();
+
+    function setOpen(open) {
+      panel.hidden = !open;
+      btn.classList.toggle("is-active", open);
+      btn.setAttribute("aria-expanded", open ? "true" : "false");
+    }
+
+    btn.addEventListener("click", function () {
+      setOpen(panel.hidden);
     });
 
-    // Botón central: master de automix (conmuta los dos grupos)
-    masterBtn.addEventListener("click", function () {
-      const next = !(state.X && state.Y);
-      state.X = state.Y = next;
-      OSC.send(PATH_X, next ? 1 : 0, "i", { commit: true });
-      OSC.send(PATH_Y, next ? 1 : 0, "i", { commit: true });
-      apply();
-      toast("Automix " + (next ? "ON (grupos X + Y)" : "OFF"));
+    const closeBtn = panel.querySelector('[data-action="gg-close"]');
+    if (closeBtn) {
+      closeBtn.addEventListener("click", function () {
+        setOpen(false);
+        btn.focus();
+      });
+    }
+
+    // Cambiar de vista principal cierra la pantalla: si no, quedaría todo
+    // tapado por el panel y parecería que la pestaña no responde.
+    document.querySelectorAll("[data-view]").forEach(function (t) {
+      t.addEventListener("click", function () {
+        if (!panel.hidden) setOpen(false);
+      });
     });
 
-    OSC.on(PATH_X, function (v) {
-      state.X = isOn(v);
-      apply();
+    document.addEventListener("keydown", function (e) {
+      if (e.key !== "Escape" || panel.hidden) return;
+      setOpen(false);
+      btn.focus();
     });
-    OSC.on(PATH_Y, function (v) {
-      state.Y = isOn(v);
-      apply();
-    });
-
-    apply();
   }
 
   /* ------------------------------------------------------- CLEAR SOLO */
@@ -1551,7 +1678,7 @@ CueDesk.app = { view: "mixer" };
     initRouting();
     initLocalPreview();
     initTalkback();
-    initAutomix();
+    initGainGuard();
     initClearSolo();
     initBankRail();
     initSession();

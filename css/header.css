@@ -369,7 +369,7 @@ button.chip:hover {
   white-space: nowrap;
 }
 
-/* Bloques internos de la barra (Preview · Talkback · Automix · Clear Solo) */
+/* Bloques internos de la barra (Preview · Talkback · GainGuard · Clear Solo) */
 .gb-left {
   column-gap: 16px;
 }
@@ -378,12 +378,20 @@ button.chip:hover {
   column-gap: 16px;
 }
 
-/* "AUTOMIX": los márgenes auto absorben el espacio libre antes que
+/* "GainGuard": los márgenes auto absorben el espacio libre antes que
    justify-content, dejando el mismo aire a ambos lados y Clear Solo al final */
 .gb-center {
   column-gap: 10px;
   margin-inline: auto;
   padding-inline: 6px;
+}
+
+/* Botón propio de marca (GainGuard), centrado igual que sus vecinos de barra.
+   La rúbrica "® StageNet Systems" ya no cuelga de aquí: vive junto al rótulo de
+   la pantalla GainGuard. */
+.gb-brand {
+  display: flex;
+  align-items: center;
 }
 
 .gb-right {
@@ -420,7 +428,7 @@ button.chip:hover {
   color: #ffffff;
 }
 
-/* Activo/destacado (Talkback, Automix, Local preview…) */
+/* Activo/destacado (Talkback, GainGuard, Local preview…) */
 .globalbar button.is-active {
   background-color: #00c0ce;
   color: #0d0d0f;
@@ -514,13 +522,37 @@ button.chip:hover {
   border-color: rgba(255, 179, 0, 0.45);
 }
 
-/* X / AUTOMIX / Y: base común del bloque; sólo estabilidad de ancho */
-.modebtn {
-  min-width: 34px;
+/* GainGuard: mismo lenguaje visual que los botones M/S de las tiras —celeste,
+   sin relleno y con el rótulo centrado en su ancho mínimo—; al activarse se
+   rellena de cian. El rótulo va en "Beyond The Mountains" (display de un solo
+   peso, por eso no se le pide negrita sintética). */
+.globalbar .gb-brand__btn {
+  justify-content: center;
+  min-width: 96px;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 6px;
+  background: none;
+  border: 1px solid var(--cyan-bright);
+  color: var(--cyan-bright);
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: 0;
 }
 
-.modebtn--wide {
-  min-width: 96px;
+.globalbar .gb-brand__btn:hover:not(.is-active) {
+  background: var(--cyan-tint);
+  border-color: var(--cyan-bright);
+  color: var(--cyan-bright);
+  box-shadow: 0 0 10px rgba(0, 192, 206, 0.3);
+}
+
+.globalbar .gb-brand__btn.is-active {
+  background: var(--cyan-bright);
+  border-color: var(--cyan-bright);
+  color: #0d0d0f;
+  box-shadow: 0 0 14px var(--cyan-glow);
 }
 
 /* CLEAR SOLO (derecha) — el hueco lo absorben los márgenes de .gb-center.

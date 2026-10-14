@@ -1210,6 +1210,168 @@
   grid-auto-flow: column;
   grid-template-rows: repeat(8, auto);
 }
+
+/* --------------------------------------------------------------------------
+   GainGuard: pantalla emergente sobre el escenario. Mismo esqueleto que
+   Setup › Preamps (bloques de 8 canales y tarjetas .setup__strip) pero sin
+   "Global options": en el sitio del 48V va un conmutador deslizante RMS/LUFS
+   y en el del Ø un desplegable de umbral que depende del modo elegido.
+   -------------------------------------------------------------------------- */
+
+.gg[hidden] {
+  display: none;
+}
+
+.gg {
+  position: absolute;
+  z-index: 60;
+  inset: var(--gap) 12px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--bg-panel);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.62);
+}
+
+.gg__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  margin-bottom: 12px;
+}
+
+/* Rótulo de la pantalla: en la display de marca y un 30 % más grande que el
+   título base (15 px → 19,5 px). */
+.gg__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 19.5px;
+  font-weight: 400;
+  line-height: 1.1;
+}
+
+/* Rúbrica de marca: colgaba bajo el botón de la barra y ahora acompaña al
+   rótulo. Vuelve a Inter, que a 9 px la display no se lee. */
+.gg__mark {
+  margin-left: 8px;
+  color: var(--text-faint);
+  font-family: var(--font);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+}
+
+/* Selector de bloque: la misma fila etiqueta + select que en Preamps */
+.gg__pick {
+  margin: 0;
+  min-height: 0;
+}
+
+.gg__close {
+  flex: 0 0 auto;
+  margin-left: auto;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card-hi);
+  color: var(--text-dim);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.gg__close:hover {
+  color: var(--cyan);
+  border-color: var(--cyan);
+}
+
+/* Cuerpo con scroll propio: si el bloque no cabe, se desplaza dentro */
+.gg__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Conmutador deslizante RMS/LUFS: pista en pastilla y pulgar que va de una
+   mitad a la otra. Objetivo táctil de 44 px, como el 48V/Ø de Preamps. */
+.gg-switch {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  width: 100%;
+  min-width: 64px;
+  min-height: 44px;
+  padding: 3px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--bg-card-hi);
+}
+
+.gg-switch__thumb {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: calc(50% - 3px);
+  border: 1px solid var(--cyan);
+  border-radius: 999px;
+  background: var(--cyan-tint);
+  transition: transform 0.16s ease;
+  pointer-events: none;
+}
+
+.gg-switch[data-mode="lufs"] .gg-switch__thumb {
+  transform: translateX(100%);
+}
+
+.gg-switch__opt {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  padding: 8px 2px;
+  border: 0;
+  background: none;
+  color: var(--text-faint);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.gg-switch__opt.is-on {
+  color: var(--cyan);
+}
+
+/* Umbral por canal: desplegable nativo, como los select de Setup (filas
+   "Preamp block", "Sample rate"…) pero a lo ancho de la tira y con el alto
+   táctil de la casa. Sus opciones dependen del modo del conmutador. */
+.gg-select {
+  width: 100%;
+  min-width: 64px;
+  min-height: 44px;
+  padding: 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg-inset);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  touch-action: manipulation;
+}
 /* GAIN: hueco del pan con 48V y Ø, misma altura que .pan */
 .strip__pre {
   display: flex;
@@ -1624,6 +1786,12 @@
 @media (max-width: 700px) {
   .setup__grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* La pantalla GainGuard se ciñe al escenario en ventanas estrechas */
+  .gg {
+    inset: 8px;
+    padding: 10px;
   }
 
   .setup__pre-head {

@@ -3,6 +3,21 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 Versionado semántico (SemVer): `MAJOR.MINOR.PATCH`.
 
+## [1.0.22] — 2026-10-14
+
+### Added
+- **Pantalla GainGuard**: al pulsar el botón de la barra global se abre sobre el escenario una pantalla con el mismo esqueleto que Setup › Preamps —cuatro bloques de ocho canales, sin «Global options»—. Por canal, el sitio del 48V lo ocupa un **conmutador deslizante RMS / LUFS** y el del Ø un **desplegable de umbral**, con las opciones del modo vigente (±3 dB y ±5 dB en RMS, -18 LUFS y -23 LUFS en LUFS). Se cierra con ✕, con Esc, volviendo a pulsar el botón o cambiando de vista principal.
+- **Tipografía de marca «Beyond The Mountains»**: viaja con el proyecto (`assets/fonts/beyond-the-mountains.otf`) con un `@font-face` que prefiere la copia instalada en el equipo, `preload` en el documento y los tipos MIME `.otf`/`.ttf` añadidos al servidor. La usan el rótulo del botón GainGuard y el título de su pantalla.
+- Rúbrica **® StageNet Systems** junto al título de GainGuard.
+
+### Changed
+- **Barra global**: el bloque de automix (X · AUTOMIX · Y) cede su sitio al **botón GainGuard**, con el mismo lenguaje visual que los botones M/S de las tiras —celeste sin relleno y rótulo centrado— y encendido en cian mientras la pantalla está abierta.
+- **Ajustes de GainGuard en local** (`localStorage`, 32 canales): el modo y el umbral de cada canal se recuerdan entre sesiones. Sin OSC por el momento.
+- **Pie**: la rúbrica pasa a «© 2026 StageNet Systems. All rights reserved.», con la marca unificada.
+
+### Removed
+- **Automix**: se elimina por completo el bloque de la barra global —botones X/AUTOMIX/Y, su conmutación local y las rutas `/config/amixenable/X|Y`—, función que no se va a utilizar.
+
 ## [1.0.21] — 2026-10-14
 
 ### Added

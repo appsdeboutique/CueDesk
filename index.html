@@ -29,7 +29,6 @@
       /main/st/mix/fader · /main/st/mix/on · /main/m/…
       /-stat/solosw/<id>      solo por tira (id = channel-id X32 + 1)
       /config/talk/enable · /config/talk/{A|B}/level
-      /config/amixenable/{X,Y}
 
     Los controles de vista (tabs, capas de banco, sesión, preview local) son
     estado del cliente — igual que en X32-Edit, donde la selección de capa no
@@ -59,6 +58,10 @@
   -->
 
   <link rel="preload" as="image" href="assets/CueDesk_logo.png">
+  <!-- Rótulo de marca: si el equipo tiene la fuente instalada se usa la local
+       (local() en tokens.css); si no, la copia del proyecto. -->
+  <link rel="preload" as="font" type="font/otf"
+        href="assets/fonts/beyond-the-mountains.otf" crossorigin>
   <link rel="stylesheet" href="css/tokens.css">
   <link rel="stylesheet" href="css/base.css">
   <link rel="stylesheet" href="css/header.css">
@@ -170,21 +173,13 @@
       </div>
 
       <div class="gb-center">
-        <button type="button" class="modebtn" data-action="amix" data-group="X"
-                aria-pressed="false"
-                data-osc-path="/config/amixenable/X" data-osc-address="/config/amixenable/X"
-                data-osc-type="i" data-state-value="0"
-                title="Automix · grupo X">X</button>
-        <button type="button" class="modebtn modebtn--wide" data-action="amix-master"
-                aria-pressed="false"
-                data-osc-path="/config/amixenable/X" data-osc-path-b="/config/amixenable/Y"
-                data-osc-address="/config/amixenable/X" data-osc-type="i" data-state-value="0"
-                title="Automix master (grupos X + Y)">AUTOMIX</button>
-        <button type="button" class="modebtn" data-action="amix" data-group="Y"
-                aria-pressed="false"
-                data-osc-path="/config/amixenable/Y" data-osc-address="/config/amixenable/Y"
-                data-osc-type="i" data-state-value="0"
-                title="Automix · grupo Y">Y</button>
+        <div class="gb-brand">
+          <button type="button" class="gb-brand__btn" data-action="gainguard"
+                  aria-expanded="false" aria-controls="gg-panel"
+                  title="Abre la pantalla GainGuard (ajustes locales, sin OSC)">
+            GainGuard
+          </button>
+        </div>
       </div>
 
       <div class="gb-right">
@@ -402,12 +397,33 @@
              de Maillot).</p>
         </div>
       </section>
+
+      <!-- --------------------------- GAIN GUARD --------------------------- -->
+      <!-- Pantalla emergente sobre el escenario: mismo esqueleto que Setup ›
+           Preamps (bloques de 8 canales) pero sin "Global options". En el sitio
+           del 48V va un conmutador deslizante RMS/LUFS y en el del Ø un
+           desplegable de umbral cuyas opciones dependen del modo elegido.
+           El contenido lo construye app.js (renderGainGuard). -->
+      <section class="gg" id="gg-panel" hidden role="dialog" aria-label="GainGuard">
+        <div class="gg__head">
+          <h2 class="gg__title">GainGuard<span class="gg__mark">® StageNet Systems</span></h2>
+          <label class="setup__row gg__pick">
+            <span>Canal block</span>
+            <select data-gg-block aria-label="Canal block"></select>
+          </label>
+          <button type="button" class="gg__close" data-action="gg-close"
+                  aria-label="Cerrar GainGuard" title="Cerrar (Esc)">✕</button>
+        </div>
+        <div class="gg__body">
+          <div data-gg-blocks></div>
+        </div>
+      </section>
     </main>
 
     <!-- ================================ FOOTER ============================ -->
     <footer class="footer">
-      <p>2026 StegeNet Systems. All rights reserved.</p>
-      <span class="footer__version" title="CueDesk · versión de la interfaz">v1.0.21</span>
+      <p>© 2026 StageNet Systems. All rights reserved.</p>
+      <span class="footer__version" title="CueDesk · versión de la interfaz">v1.0.22</span>
     </footer>
   </div>
 
