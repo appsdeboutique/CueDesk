@@ -942,6 +942,7 @@ CueDesk.Mixer = (function () {
     list.forEach(function (m, i) {
       wireStrip(sections[i], m);
     });
+    applyGainLocks();
   }
 
   /* ------------------------------------------------------------- master */
@@ -1505,6 +1506,65 @@ CueDesk.Mixer = (function () {
     return masterSim[side].level + (isFinite(f) ? f : -95);
   }
 
+  /* ------------------------------------------------- bloqueo por GainGuard */
+  /* Mientras Stage Guard o PreGuard mueven el previo de un canal, el motor
+     descarta el control manual y reafirma su valor. El mixer sólo pregunta
+     quién está bloqueado (consulta ligera, una vez por segundo) y se lo
+     muestra al operador: en modo GAIN —el previo— el fader queda inerte y
+     rotulado. La autoridad es siempre el motor. */
+
+  let guardLocked = new Set();
+  let guardLockTimer = null;
+
+  function gainId(m) {
+    return m && m.kind === "ch" && typeof m.n === "number" ? "ch." + p2(m.n) : null;
+  }
+
+  function applyGainLocks() {
+    if (!rack) return;
+    const sections = rack.querySelectorAll(".strip");
+    sections.forEach(function (sec, i) {
+      const id = gainId(activeStrips[i]);
+      const locked = !!(gainMode && id && guardLocked.has(id));
+      sec.classList.toggle("is-guardlocked", locked);
+      const fader = sec.querySelector('[data-role="fader"]');
+      if (fader) {
+        if (locked) fader.setAttribute("aria-disabled", "true");
+        else fader.removeAttribute("aria-disabled");
+      }
+      const badge = sec.querySelector(".strip__lock");
+      if (locked && !badge) {
+        const el = document.createElement("span");
+        el.className = "strip__lock";
+        el.textContent = "LOCK";
+        el.setAttribute("role", "status");
+        el.title = "El previo lo gestiona GainGuard: control manual bloqueado";
+        sec.appendChild(el);
+      } else if (!locked && badge) {
+        badge.remove();
+      }
+    });
+  }
+
+  function pollGainLocks() {
+    guardLockTimer = null;
+    if (typeof fetch !== "function") return;
+    fetch("/api/gainguard/locks")
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        const list = data && Array.isArray(data.locks) ? data.locks : [];
+        const same =
+          list.length === guardLocked.size &&
+          list.every(function (id) { return guardLocked.has(id); });
+        guardLocked = new Set(list);
+        if (!same) applyGainLocks();
+      })
+      .catch(function () {})
+      .then(function () {
+        guardLockTimer = setTimeout(pollGainLocks, 1000);
+      });
+  }
+
   /* ------------------------------------------------------------- rebuild */
 
   function rebuild() {
@@ -1569,6 +1629,7 @@ CueDesk.Mixer = (function () {
     rebuild();
     wireMaster();
     Meters.start();
+    pollGainLocks();
   }
 
   return {

@@ -1,15 +1,18 @@
 "use strict";
 
 /* ==========================================================================
- * CueDesk — servidor estático local (Node.js, cero dependencias)
+ * CueDesk — servidor local (Node.js, cero dependencias)
  * --------------------------------------------------------------------------
  *  Arranque doble : doble clic en  CueDesk_Mixer.bat
- *  Arranque manual: node server.js [--port 8765]
+ *  Arranque manual: node server.js [--port 8765] [--console <ip>] [--no-gg]
  *
  *  Sirve exactamente esta misma carpeta (index.html, css/, js/, assets/)
  *  sobre 127.0.0.1 para que la app corra con el mismo origen que en la
  *  Raspberry Pi: evita las restricciones de file:// y deja el puerto
  *  listo para el puente WebSocket de la consola.
+ *
+ *  Backend: motor OSC (backend/osc) + suite GainGuard (backend/suite, TypeScript
+ *  que Node ejecuta directamente) + enrutador de API (backend/http).
  *
  *  Si el puerto ya está ocupado (la app ya se está sirviendo) termina con
  *  código 0 y sin tocar nada, para que el lanzador abra el navegador igual.
@@ -20,32 +23,18 @@ const fs = require("fs");
 const path = require("path");
 const dgram = require("dgram");
 
+const oscEngine = require("./backend/osc/oscEngine");
+const { createRouter } = require("./backend/http/router");
+
 const ROOT = __dirname;
 
 const CONSOLE_IP_DEFAULT = "192.168.1.10";
 const CONSOLE_OSC_PORT = 10023;
 const IPV4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
 
+/** Decodificador OSC compartido (backend/osc): sonda y telemetría. */
 function parseOscArgs(buf) {
-  let i = 0;
-  const readStr = function () {
-    const start = i;
-    while (i < buf.length && buf[i] !== 0) i++;
-    const s = buf.toString("latin1", start, i);
-    i = (i + 4) & ~3;
-    return s;
-  };
-  readStr();
-  const tags = readStr();
-  const out = [];
-  if (!tags.startsWith(",")) return out;
-  for (const t of tags.slice(1)) {
-    if (t === "s") out.push(readStr());
-    else if (t === "i") { out.push(buf.readInt32BE(i)); i += 4; }
-    else if (t === "f") { out.push(buf.readFloatBE(i)); i += 4; }
-    else break;
-  }
-  return out;
+  return oscEngine.parseMessage(buf).args;
 }
 
 function probeConsole(ip, timeoutMs) {
@@ -131,7 +120,68 @@ const MIME = {
   ".webmanifest": "application/manifest+json",
 };
 
-const server = http.createServer((req, res) => {
+/* ---------------------------------------------------------------------------
+ * Backend: motor OSC + suite GainGuard + enrutador de API
+ * ------------------------------------------------------------------------ */
+
+const argConsole = argv.indexOf("--console");
+const CONSOLE_IP =
+  argConsole !== -1 && argv[argConsole + 1] && IPV4.test(argv[argConsole + 1])
+    ? argv[argConsole + 1]
+    : null;
+const GG_ENABLED = argv.indexOf("--no-gg") === -1;
+
+const router = createRouter();
+
+/** Carga la suite (TypeScript, ESM) y la conecta al motor OSC. Sin consola
+ *  (--console <ip>) el motor va en dry-run: misma lógica, sin tocar la red. */
+async function startSuite() {
+  const core = await import("./backend/suite/gainGuardEngine.ts");
+  const api = await import("./backend/suite/api.ts");
+
+  const osc = oscEngine.createOscEngine({
+    mode: CONSOLE_IP ? "udp" : "dry-run",
+    host: CONSOLE_IP || CONSOLE_IP_DEFAULT,
+    port: CONSOLE_OSC_PORT,
+    coalesceMs: 0,        // el motor ya pauta sus envíos (tick de 100 ms)
+  });
+
+  const engine = new core.GainGuardEngine({
+    transport: {
+      send: function (msg) {
+        osc.send(msg.path, msg.value, "f");
+      },
+    },
+  });
+  for (let n = 1; n <= 32; n++) engine.addChannel("ch." + String(n).padStart(2, "0"));
+
+  /* Ecos de la consola: el motor descarta los suyos y toma el resto como cambios. */
+  osc.on("/ch/*", function (args, p) { engine.ingestConsole(p, Number(args[0])); });
+  osc.on("/headamp/*", function (args, p) { engine.ingestConsole(p, Number(args[0])); });
+
+  /* Telemetría. La correspondencia índice→canal de /meters/1 depende del banco
+     de vúmetros activo en la consola; valor por verificar con hardware real.
+     El camino fiable es POST /api/gainguard/meters. */
+  osc.on("/meters/1", function (args) {
+    const list = Array.isArray(args[0]) ? args[0] : args;
+    if (list.length !== 32) return;
+    list.forEach(function (v, i) {
+      const db = Number(Array.isArray(v) ? v[0] : v);
+      if (Number.isFinite(db)) engine.ingestLevel("ch." + String(i + 1).padStart(2, "0"), db);
+    });
+  });
+
+  if (CONSOLE_IP) osc.listen(0);
+  api.mountSuiteRoutes(router, engine);
+  engine.start();
+  return { engine: engine, osc: osc };
+}
+
+const server = http.createServer(async (req, res) => {
+  // 1) API del backend (suite GainGuard y lo que venga después)
+  if (await router.handle(req, res)) return;
+
+  // 2) Sonda de consola
   const urlPath = decodeURIComponent((req.url || "/").split("?")[0]);
   if (urlPath === "/api/console") {
     handleConsoleProbe(req, res);
@@ -183,9 +233,22 @@ server.on("error", (err) => {
   process.exit(1);
 });
 
-server.listen(PORT, "127.0.0.1", () => {
-  console.log("[CueDesk] Servidor local listo");
-  console.log("  Vista mixer : http://127.0.0.1:" + PORT + "/?view=mixer");
-  console.log("  Carpeta     : " + ROOT);
-  console.log("  Detener     : Ctrl+C (o cerrar esta ventana)");
+const suiteReady = GG_ENABLED
+  ? startSuite().catch(function (err) {
+      console.error("[GainGuard] no arranca: " + err.message);
+      return null;
+    })
+  : Promise.resolve(null);
+
+suiteReady.then(function (suite) {
+  server.listen(PORT, "127.0.0.1", () => {
+    console.log("[CueDesk] Servidor local listo");
+    console.log("  Vista mixer : http://127.0.0.1:" + PORT + "/?view=mixer");
+    console.log("  GainGuard   : " + (suite
+      ? (CONSOLE_IP ? "activo, OSC a " + CONSOLE_IP : "activo, motor OSC en dry-run (sin --console)")
+      : "desactivado (--no-gg)"));
+    if (suite) console.log("  API         : http://127.0.0.1:" + PORT + "/api/gainguard");
+    console.log("  Carpeta     : " + ROOT);
+    console.log("  Detener     : Ctrl+C (o cerrar esta ventana)");
+  });
 });

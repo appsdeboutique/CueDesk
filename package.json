@@ -1,0 +1,13 @@
+{
+  "name": "cuedesk",
+  "private": true,
+  "description": "CueDesk: control de mesas Behringer X32 desde el navegador",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node server.js --port 8765",
+    "test": "node --test \"backend/test/*.test.js\" \"backend/suite/test/*.test.ts\""
+  }
+}

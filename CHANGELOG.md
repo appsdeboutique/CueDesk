@@ -3,6 +3,27 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 Versionado semántico (SemVer): `MAJOR.MINOR.PATCH`.
 
+## [1.0.24] — 2026-10-15
+
+### Added
+- **Motor GainGuard** (`backend/suite`, TypeScript): control automático sobre OSC con un ciclo estricto de 100 ms y un pipeline en orden fijo —normalización base (fader), Stage Guard y PreGuard (previo) y BusGuard—. Banda muerta de 0,5 dB, cooldown de 2,5 s por canal y descarte de ecos de lo escrito por CueDesk.
+- **Normalización base**: RMS cada 10 s en canales de micro/línea y objetivo fijo LUFS en pistas, con corrección por rampa de 2 s. Ignora desviaciones por debajo del umbral del selector (±3 dB, ±5 dB, −18 LUFS, −23 LUFS) y descarta saltos anómalos (> 15 dB) bloqueando el canal tras tres avisos, que se levantan desde la API.
+- **Stage Guard** (*ducking*): con el canal en silencio el tiempo de *hold*, baja el previo 10 dB —la señal nunca se corta—. La restauración es inmediata (5 dB por ciclo, ~200 ms), no espera al cooldown, detecta la voz en 100 ms y usa una histéresis de 3 dB para no oscilar. Apagar el StageGuard de un canal atenuado le devuelve el previo.
+- **PreGuard**: protección preventiva del previo. Con dinámica sostenida por encima del techo (−3 dBFS) baja el previo poco a poco (0,5 dB por ciclo de cooldown) y lo libera con una histéresis de 3 dB cuando el nivel cede. Con un **objetivo único** para el previo, Stage Guard y PreGuard componen sus desplazamientos sobre una misma referencia y conviven sin bucles. **BusGuard** (modo *stealth*): compensa en **los 16 buses** la variación del **previo** —nunca el fader— para que el IEM no note los ajustes; es el interruptor maestro de cabecera y no exige declarar qué buses alimenta cada canal.
+- **Bloqueo del control manual del previo**: mientras Stage Guard o PreGuard están moviendo el previo de un canal, el motor descarta el cambio manual que llegue y **reafirma su valor** en la consola —hasta 1 s después del último ajuste— para que la mano humana y el automatismo no se peleen por el mismo mando. El estado se expone por canal en `lock`.
+- **API REST de la suite** (`/api/gainguard`): estado completo, configuración de BusGuard y de cada canal, telemetría de 32 canales, entrada de consola, envío a bus, consulta de canales bloqueados y desbloqueo de canal. Documentada en `docs/GAINGUARD.md`.
+- **Guardas por canal**: dos botones por tira en la pantalla GainGuard —**StageGuard** (cian apagado, ámbar encendido) y **PreGuard** justo debajo (cian apagado, verde encendido)— encima del selector RMS/LUFS, con un respiro rotulado **«GainGuard Select»** entre las guardas y el bloque de medida. Al cargar la página se sincronizan los 32 canales en una sola petición, con la pantalla como referencia.
+- **Referencia única del previo**: el motor mantiene `nominalGain` (valor sin guardas) y acumula desplazamientos por Stage Guard y PreGuard. Los cambios manuales del previo reajustan esa referencia sin perder la protección ni la atenuación por silencio.
+- **Bloqueo visible en el mixer**: mientras una guarda mueve el previo, el mixer consulta los canales bloqueados (`GET /locks`, una vez por segundo) y en **modo GAIN** deja el fader del previo inerte con un rótulo **LOCK** en ámbar. En modo nivel el fader sigue normal: no es el previo.
+
+### Changed
+- **Cabecera de GainGuard en tres zonas**: «Channel Block» —antes «Canal block»— a la izquierda, el nombre **GainGuard®** centrado y un 30 % más grande, y el rótulo **BusGuard** con su ON/OFF junto al botón de cerrar, a la derecha.
+- **Monitor Guard pasa a llamarse BusGuard** en toda la interfaz.
+- **Stage Guard · recuperación**: la subida deja de esperar al cooldown y sube en pasos rápidos, para no perder palabras de una frase.
+
+### Removed
+- **Módulo GainGuard antiguo en JavaScript** (`backend/gainGuard/*`: servicio, Monitor Guard, guarda de ecos, filtros, planificador de rampas y sus rutas y pruebas), sustituido por la suite TypeScript. Se conservan sus analizadores RMS y LUFS, que la suite reutiliza.
+
 ## [1.0.23] — 2026-10-14
 
 ### Added

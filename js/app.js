@@ -1413,11 +1413,13 @@ CueDesk.app = { view: "mixer" };
   /* ------------------------------------------------------- GAIN GUARD */
 
   /* Pantalla emergente sobre el escenario: mismo esqueleto que Setup › Preamps
-     (bloques de 8 canales) pero sin "Global options". En la cabecera, junto al
-     selector de bloque, va el conmutador de Monitor Guard (encendido o no). Por
-     canal: conmutador deslizante RMS/LUFS en el sitio del 48V y desplegable de
-     umbral —con "Off" en ambas escalas— en el del Ø. Son preferencias locales
-     (localStorage); su envío a consola está pendiente de definir. */
+     (bloques de 8 canales) pero sin "Global options". En la cabecera, a la
+     derecha, va el conmutador de BusGuard (encendido o no). Por canal:
+     StageGuard y PreGuard (un botón cada uno: cian apagado; ámbar y verde
+     encendidos) encima del conmutador RMS/LUFS —en el sitio del 48V— y
+     desplegable de umbral —con "Off" en ambas escalas— en el del Ø. Modo y
+     umbral son preferencias locales (localStorage, aún sin enviar);
+     StageGuard y PreGuard sí llegan al backend, uno por canal. */
   const GG_KEY = "cuedesk.gainguard";
   const GG_MODES = [
     { id: "rms", label: "RMS", options: ["Off", "±3 dB", "±5 dB"] },
@@ -1448,7 +1450,12 @@ CueDesk.app = { view: "mixer" };
         const max = ggMode(mode).options.length - 1;
         let opt = c && Number.isInteger(c.opt) && c.opt >= 0 && c.opt <= max ? c.opt : 0;
         if (legacy && c && Number.isInteger(c.opt)) opt = Math.min(opt + 1, max);
-        return { mode: mode, opt: opt };
+        return {
+          mode: mode,
+          opt: opt,
+          stage: !!(c && c.stage),
+          pre: !!(c && c.pre),
+        };
       }),
     };
   }
@@ -1459,10 +1466,111 @@ CueDesk.app = { view: "mixer" };
     } catch (_) {}
   }
 
+  /* StageGuard por canal: sólo llega al backend cuando el usuario lo cambia. */
+  function ggPushStage(index, on) {
+    if (typeof fetch !== "function") return;
+    fetch("/api/gainguard/config", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        channels: [{ id: "ch." + String(index + 1).padStart(2, "0"), stage: { enabled: !!on } }],
+      }),
+    }).catch(function () {});
+  }
+
+  /* PreGuard por canal: mismo criterio, sólo llega al backend al cambiarlo. */
+  function ggPushPre(index, on) {
+    if (typeof fetch !== "function") return;
+    fetch("/api/gainguard/config", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        channels: [{ id: "ch." + String(index + 1).padStart(2, "0"), pre: { enabled: !!on } }],
+      }),
+    }).catch(function () {});
+  }
+
+  /* Al arrancar se sincronizan los 32 canales en una sola petición (StageGuard
+     y PreGuard). El motor arranca todo apagado (no persiste entre reinicios),
+     pero la pantalla es la referencia: si un canal quedó activo de una sesión
+     anterior, se manda tal cual, y si no, se apaga también en el backend. */
+  function ggPushChannelSync(state) {
+    if (typeof fetch !== "function") return;
+    const channels = state.ch.map(function (c, i) {
+      return {
+        id: "ch." + String(i + 1).padStart(2, "0"),
+        stage: { enabled: !!c.stage },
+        pre: { enabled: !!c.pre },
+      };
+    });
+    fetch("/api/gainguard/config", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ channels: channels }),
+    }).catch(function () {});
+  }
+
+  /* El interruptor BusGuard sólo llega al backend cuando el usuario lo
+     cambia: abrir el panel no activa nada. Si el backend no responde, el
+     interruptor sigue en local. */
+  function ggPushBusGuard(on) {
+    if (typeof fetch !== "function") return;
+    fetch("/api/gainguard/config", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ bus: { enabled: !!on } }),
+    }).catch(function () {});
+  }
+
   function ggStrip(ch, index, save) {
     const pad = String(index + 1).padStart(2, "0");
     const strip = document.createElement("div");
     strip.className = "setup__strip";
+
+    /* StageGuard (encima del conmutador RMS/LUFS): un solo botón por canal.
+       Apagado en cian, encendido en ámbar. */
+    const stageBtn = document.createElement("button");
+    stageBtn.type = "button";
+    stageBtn.className = "gg-stagebtn";
+    stageBtn.textContent = "StageGuard";
+    stageBtn.setAttribute("aria-label", "StageGuard · canal " + pad);
+    stageBtn.addEventListener("click", function () {
+      ch.stage = !ch.stage;
+      syncStage();
+      save();
+      ggPushStage(index, ch.stage);
+    });
+
+    function syncStage() {
+      stageBtn.classList.toggle("is-on", !!ch.stage);
+      stageBtn.setAttribute("aria-pressed", ch.stage ? "true" : "false");
+    }
+
+    /* PreGuard (debajo de StageGuard): protege el conversor A/D bajando el
+       previo cuando la señal sostenida roza el techo. Apagado en cian,
+       encendido en verde. */
+    const preBtn = document.createElement("button");
+    preBtn.type = "button";
+    preBtn.className = "gg-prebtn";
+    preBtn.textContent = "PreGuard";
+    preBtn.setAttribute("aria-label", "PreGuard · canal " + pad);
+    preBtn.addEventListener("click", function () {
+      ch.pre = !ch.pre;
+      syncPre();
+      save();
+      ggPushPre(index, ch.pre);
+    });
+
+    function syncPre() {
+      preBtn.classList.toggle("is-on", !!ch.pre);
+      preBtn.setAttribute("aria-pressed", ch.pre ? "true" : "false");
+    }
+
+    /* Respiro entre las guardas y el selector RMS/LUFS, con la rúbrica
+       "GainGuard Select" para que el bloque de medida no se amontone. */
+    const sep = document.createElement("div");
+    sep.className = "gg-sep";
+    sep.textContent = "GainGuard Select";
 
     /* Conmutador deslizante RMS/LUFS (ocupa el sitio del 48V) */
     const sw = document.createElement("div");
@@ -1525,6 +1633,11 @@ CueDesk.app = { view: "mixer" };
     }
 
     sync();
+    syncStage();
+    syncPre();
+    strip.appendChild(stageBtn);
+    strip.appendChild(preBtn);
+    strip.appendChild(sep);
     strip.appendChild(sw);
     strip.appendChild(pick);
     strip.appendChild(num);
@@ -1542,7 +1655,7 @@ CueDesk.app = { view: "mixer" };
     };
     const blocks = [];
 
-    /* Monitor Guard (cabecera): el mismo conmutador que los canales, pero uno
+    /* BusGuard (cabecera): el mismo conmutador que los canales, pero uno
        solo para toda la pantalla. De momento es estado local, como el resto. */
     const monSw = document.querySelector("[data-gg-monitor]");
     const monOpts = monSw
@@ -1565,6 +1678,7 @@ CueDesk.app = { view: "mixer" };
         state.mon = on;
         syncMon();
         save();
+        ggPushBusGuard(on);
       });
     });
     if (monSw) syncMon();
@@ -1599,6 +1713,7 @@ CueDesk.app = { view: "mixer" };
     if (!btn || !panel) return;
 
     renderGainGuard();
+    ggPushChannelSync(ggLoad());
 
     function setOpen(open) {
       panel.hidden = !open;

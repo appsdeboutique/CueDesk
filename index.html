@@ -400,31 +400,35 @@
 
       <!-- --------------------------- GAIN GUARD --------------------------- -->
       <!-- Pantalla emergente sobre el escenario: mismo esqueleto que Setup ›
-           Preamps (bloques de 8 canales) pero sin "Global options". Además del
-           selector de bloque lleva el de Monitor Guard (encendido o no). Por
-           canal: conmutador deslizante RMS/LUFS en el sitio del 48V y desplegable
+           Preamps (bloques de 8 canales) pero sin "Global options". La cabecera
+           reparte tres zonas: Channel Block a la izquierda, el rótulo centrado
+           y BusGuard (encendido o no) con el botón de cerrar a la derecha. Por
+           canal: botón StageGuard (cian apagado / ámbar encendido) encima del
+           conmutador deslizante RMS/LUFS —en el sitio del 48V— y desplegable
            de umbral —con "Off" en las dos escalas— en el del Ø.
            El contenido lo construye app.js (renderGainGuard). -->
       <section class="gg" id="gg-panel" hidden role="dialog" aria-label="GainGuard">
         <div class="gg__head">
-          <h2 class="gg__title">GainGuard<span class="gg__mark">® StageNet Systems</span></h2>
           <label class="setup__row gg__pick">
-            <span>Canal block</span>
-            <select data-gg-block aria-label="Canal block"></select>
+            <span>Channel Block</span>
+            <select data-gg-block aria-label="Channel Block"></select>
           </label>
-          <div class="gg-monitor">
-            <span class="gg-monitor__label" id="gg-monitor-label">Monitor Guard</span>
-            <div class="gg-switch gg-switch--sm" role="group" data-gg-monitor
-                 aria-labelledby="gg-monitor-label">
-              <span class="gg-switch__thumb" aria-hidden="true"></span>
-              <button type="button" class="gg-switch__opt" data-gg-monitor-opt="off"
-                      aria-pressed="true">OFF</button>
-              <button type="button" class="gg-switch__opt" data-gg-monitor-opt="on"
-                      aria-pressed="false">ON</button>
+          <h2 class="gg__title">GainGuard<span class="gg__reg">®</span><span class="gg__mark">StageNet Systems</span></h2>
+          <div class="gg__headside">
+            <div class="gg-monitor">
+              <span class="gg-monitor__label" id="gg-monitor-label">BusGuard</span>
+              <div class="gg-switch gg-switch--sm" role="group" data-gg-monitor
+                   aria-labelledby="gg-monitor-label">
+                <span class="gg-switch__thumb" aria-hidden="true"></span>
+                <button type="button" class="gg-switch__opt" data-gg-monitor-opt="off"
+                        aria-pressed="true">OFF</button>
+                <button type="button" class="gg-switch__opt" data-gg-monitor-opt="on"
+                        aria-pressed="false">ON</button>
+              </div>
             </div>
+            <button type="button" class="gg__close" data-action="gg-close"
+                    aria-label="Cerrar GainGuard" title="Cerrar (Esc)">✕</button>
           </div>
-          <button type="button" class="gg__close" data-action="gg-close"
-                  aria-label="Cerrar GainGuard" title="Cerrar (Esc)">✕</button>
         </div>
         <div class="gg__body">
           <div data-gg-blocks></div>
@@ -435,7 +439,7 @@
     <!-- ================================ FOOTER ============================ -->
     <footer class="footer">
       <p>© 2026 StageNet Systems. All rights reserved.</p>
-      <span class="footer__version" title="CueDesk · versión de la interfaz">v1.0.23</span>
+      <span class="footer__version" title="CueDesk · versión de la interfaz">v1.0.24</span>
     </footer>
   </div>
 
