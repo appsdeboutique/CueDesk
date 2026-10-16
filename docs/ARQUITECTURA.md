@@ -48,6 +48,10 @@ cuedesk/
 │   │   ├── sq/              ← A&H, TCP con framing propio
 │   │   ├── tf/              ← Yamaha, TCP/MIDI
 │   │   └── fake/            ← consola sintética: demo, pruebas, CI sin hardware
+│   ├── net-adapter/         ← contrato de red del appliance: DTOs, QoS, rutas HTTP  [existe]
+│   │     types.ts · adapter.ts · qos.ts · errors.ts · api.ts
+│   ├── hardware-mt7921/     ← driver radio MediaTek MT7921K (Wi-Fi 6 + BT 5.2): iw/ip/BlueZ  [existe]
+│   │     Mt7921Adapter.ts · parsers.ts · bluetooth.ts · SimNetwork.ts
 │   ├── core/                ← store normalizado, dirty-set, reconciliación, planner de escenas
 │   ├── bridge/              ← servidor WS de la Pi: sesiones, dos planos, backpressure, auth
 │   ├── scene/               ← USF: import/export, equivalencias, informe de traducción
@@ -220,7 +224,8 @@ Cuentas (8 tiras + master L/R = 18 medidores):
 - **UDP silencioso:** si la telemetría llega por OSC/UDP, el kernel **descarta paquetes sin avisar** si `SO_RCVBUF` es pequeño → ampliar buffer y **contar descartes**; si nadie lo mide, aparece como "vúmetros que traban".
 - **Almacenamiento:** logs rotados y en `tmpfs`; la SD se gasta con escrituras constantes de estado.
 - **Térmica/CPU:** bajo carga sostenida el Pi hace *throttling* → el primer efecto es latencia de red; vigilar temperatura como métrica de salud del appliance.
-- **Wi-Fi 7** reduce RTT pero **no** elimina el solapamiento de canales ni los clientes saturados: el bridge debe ir **cableado** y tratar el Wi-Fi como *enlace no fiable por diseño*, no como excepción.
+- **Wi-Fi del appliance:** la radio elegida es la MediaTek **MT7921K** (Wi-Fi 6 · `mt7921e` · 2,4 + 5 GHz · **modo AP** con `hostapd`). **No** hay 6 GHz ni **MLO** (MLO es Wi-Fi 7 y, además, capacidad de estación). Detalle del subsistema (contrato `@cuedesk/net-adapter` + driver `@cuedesk/hardware-mt7921`, QoS DSCP→WMM, BLE y frontera con la UI) en **[NETWORK-MT7921.md](NETWORK-MT7921.md)**.
+- **El Wi-Fi del recinto** reduce RTT pero **no** elimina el solapamiento de canales ni los clientes saturados: el bridge debe ir **cableado** y tratar el Wi-Fi como *enlace no fiable por diseño*, no como excepción.
 - **Orden entre clientes:** timestamp del servidor (`ts`) en todo mensaje; el navegador no es reloj fiable.
 
 ### 2.6 Estado actual y siguiente paso en código

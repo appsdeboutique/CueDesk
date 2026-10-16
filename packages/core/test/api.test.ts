@@ -111,6 +111,29 @@ test("GET /api/gainguard/meters publica la última lectura por canal", function 
   ]);
 });
 
+/* -------------------------------------------------------------------- rearm */
+
+test("POST /api/gainguard/rearm pausa la automatización y GET la publica", function () {
+  const env = make();
+  const out = env.router.call("POST", "/api/gainguard/rearm", { body: { ms: 20000 } });
+  assert.equal(out.held, true);
+  assert.equal(out.totalMs, 20000);
+  assert.equal(env.engine.status().rearm.held, true);
+  assert.equal(env.router.call("GET", "/api/gainguard/rearm").held, true);
+});
+
+test("POST /api/gainguard/rearm sin cuerpo usa el plazo del motor (20 s)", function () {
+  const env = make();
+  assert.equal(env.router.call("POST", "/api/gainguard/rearm", { body: {} }).totalMs, 20000);
+});
+
+test("POST /api/gainguard/rearm rechaza un 'ms' fuera de rango", function () {
+  const env = make();
+  assert.throws(function () {
+    env.router.call("POST", "/api/gainguard/rearm", { body: { ms: "mucho" } });
+  }, /fuera de rango/);
+});
+
 /* --------------------------------------------------------------------- locks */
 
 test("GET /api/gainguard/locks separa el bloqueo momentáneo del persistente", function () {

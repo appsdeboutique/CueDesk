@@ -5,6 +5,7 @@
  * --------------------------------------------------------------------------
  *  Arranque doble : doble clic en  CueDesk_Mixer.bat
  *  Arranque manual: node server.js [--port 8765] [--console <ip>] [--no-gg]
+ *                                 [--net <iface|sim>] [--no-net]
  *
  *  Sirve exactamente esta misma carpeta (index.html, css/, js/, assets/)
  *  sobre 127.0.0.1 para que la app corra con el mismo origen que en la
@@ -12,7 +13,9 @@
  *  listo para el puente WebSocket de la consola.
  *
  *  Composición: motor @cuedesk/core + driver @cuedesk/console-x32, sobre el
- *  transporte OSC y el enrutador de API de apps/cuebox.
+ *  transporte OSC y el enrutador de API de apps/cuebox. El subsistema de red
+ *  (@cuedesk/net-adapter + @cuedesk/hardware-mt7921) se cuelga del mismo
+ *  enrutador: real en Linux con `iw`, simulado en cualquier otro sitio.
  *
  *  Si el puerto ya está ocupado (la app ya se está sirviendo) termina con
  *  código 0 y sin tocar nada, para que el lanzador abra el navegador igual.
@@ -131,6 +134,16 @@ const CONSOLE_IP =
     : null;
 const GG_ENABLED = argv.indexOf("--no-gg") === -1;
 
+/* Subsistema de red (MT7921K). Por defecto: real en Linux, simulado en el resto
+   (desarrollo en Windows, CI). `--net sim` fuerza el simulador; `--net wlan0`
+   fija la interfaz; `--no-net` lo desactiva por completo. */
+const NET_ENABLED = argv.indexOf("--no-net") === -1;
+const argNet = argv.indexOf("--net");
+const NET_ARG =
+  argNet !== -1 && argv[argNet + 1] && argv[argNet + 1].charAt(0) !== "-"
+    ? argv[argNet + 1]
+    : null;
+
 const router = createRouter();
 
 /** Compone el motor con el driver de la consola y lo cuelga del enrutador.
@@ -166,6 +179,26 @@ async function startSuite() {
   core.mountSuiteRoutes(router, engine, adapter);
   engine.start();
   return { engine: engine, adapter: adapter, osc: osc };
+}
+
+/** Compone el subsistema de red (MT7921K) y lo cuelga del enrutador.
+ *  Real si hay `iw` (Linux); simulado en el resto. La interfaz la elige el
+ *  driver si no se fuerza con `--net <iface>`. */
+async function startNetwork() {
+  const netApi = await import("@cuedesk/net-adapter");
+  const hw = await import("@cuedesk/hardware-mt7921");
+
+  const wantSim = NET_ARG === "sim" || (!NET_ARG && process.platform !== "linux");
+  const network = wantSim
+    ? hw.createSimulatedNetwork({ band: "5", clients: 3 })
+    : hw.createMt7921Network({
+        iface: NET_ARG && NET_ARG !== "sim" ? NET_ARG : undefined,
+        role: "ap",
+      });
+
+  await network.start();
+  netApi.mountNetworkRoutes(router, network);
+  return network;
 }
 
 const server = http.createServer(async (req, res) => {
@@ -231,7 +264,16 @@ const suiteReady = GG_ENABLED
     })
   : Promise.resolve(null);
 
-suiteReady.then(function (suite) {
+const netReady = NET_ENABLED
+  ? startNetwork().catch(function (err) {
+      console.error("[Red] no arranca: " + err.message);
+      return null;
+    })
+  : Promise.resolve(null);
+
+Promise.all([suiteReady, netReady]).then(function (ready) {
+  const suite = ready[0];
+  const network = ready[1];
   server.listen(PORT, "127.0.0.1", () => {
     console.log("[CueDesk] Servidor local listo");
     console.log("  Vista mixer : http://127.0.0.1:" + PORT + "/?view=mixer");
@@ -239,6 +281,12 @@ suiteReady.then(function (suite) {
       ? (CONSOLE_IP ? "activo, OSC a " + CONSOLE_IP : "activo, motor OSC en dry-run (sin --console)")
       : "desactivado (--no-gg)"));
     if (suite) console.log("  API         : http://127.0.0.1:" + PORT + "/api/gainguard");
+    console.log("  Red         : " + (network
+      ? (network.simulated
+          ? "MT7921K SIMULADO (demo/CI)"
+          : "MT7921K real, iface " + (network.status().iface || "?"))
+      : "desactivada (--no-net)"));
+    if (network) console.log("  API red     : http://127.0.0.1:" + PORT + "/api/network");
     console.log("  Carpeta     : " + ROOT);
     console.log("  Detener     : Ctrl+C (o cerrar esta ventana)");
   });

@@ -1,0 +1,14 @@
+{
+  "name": "@cuedesk/hardware-mt7921",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "CueDesk — driver del módulo MediaTek MT7921K (Wi-Fi 6 + BT 5.2, modo AP): mt76/mt7921e, iw, QoS y BlueZ.",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@cuedesk/net-adapter": "*"
+  }
+}

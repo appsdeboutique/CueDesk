@@ -12,7 +12,8 @@
  *
  * Reglas transversales: banda muerta de 0,5 dB; cooldown de 2,5 s por canal
  * tras cada ajuste automático (bloquea nuevas acciones, no una rampa en
- * curso).
+ * curso). El botón REARM de la interfaz llama a `hold(ms)`: las decisiones se
+ * silencian ese tiempo y vuelven solas, sin tocar la configuración.
  *
  * El motor NO conoce la consola. Habla exclusivamente con `ConsoleAdapter`:
  * dice «baja el previo de ch.09 a 18 dB» y el driver decide si eso es
@@ -34,6 +35,7 @@ import type {
   ControlKind,
   EngineConfig,
   PreGuardConfig,
+  RearmState,
   StageGuardConfig,
 } from "./types.ts";
 
@@ -83,6 +85,9 @@ export class GainGuardEngine {
   private lastBaseAt: number;
   private timer: ReturnType<typeof setInterval> | null = null;
   private ticks = 0;
+  /* Pausa REARM: mientras `clock() < holdUntil`, `tick()` no decide nada. */
+  private holdUntil = 0;
+  private holdMs = 0;
 
   constructor(options: EngineOptions) {
     this.cfg = Object.assign({}, DEFAULT_ENGINE, options.config || {});
@@ -293,6 +298,16 @@ export class GainGuardEngine {
   tick(now?: number): void {
     const t = now !== undefined ? now : this.clock();
     this.ticks++;
+
+    /* Pausa REARM: ni una decisión mientras dure. La cadencia base se corre
+       con el reloj para que, al volver, no dispare un análisis atrasado; la
+       telemetría y los cambios de la consola se siguen registrando (así el
+       motor conoce el estado real al rearmarse). */
+    if (t < this.holdUntil) {
+      this.lastBaseAt = t;
+      return;
+    }
+
     const chans = Array.from(this.channels.values());
 
     // Base de BusGuard antes de cualquier automatismo de este ciclo.
@@ -318,6 +333,39 @@ export class GainGuardEngine {
   stop(): void {
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
+  }
+
+  /**
+   * Pausa temporal (botón REARM): la automatización deja de decidir durante
+   * `ms` milisegundos y se rearma sola. No toca la configuración ni el estado
+   * por canal —guardas, umbrales, referencias y desplazamientos quedan
+   * intactos—: sólo silencia `tick()`. Con un valor no finito o ≤ 0 equivale a
+   * un rearme inmediato. Sin argumento usa el plazo del motor (`rearmMs`).
+   */
+  hold(ms?: number): RearmState {
+    const dur = ms === undefined ? this.cfg.rearmMs : ms;
+    if (!Number.isFinite(dur) || dur <= 0) return this.rearm();
+    this.holdMs = dur;
+    this.holdUntil = this.clock() + dur;
+    return this.rearmState();
+  }
+
+  /** Levanta la pausa de inmediato (rearme manual o fin del plazo). */
+  rearm(): RearmState {
+    this.holdMs = 0;
+    this.holdUntil = 0;
+    return this.rearmState();
+  }
+
+  /** Estado de la pausa REARM, para la cuenta atrás de la interfaz. */
+  rearmState(): RearmState {
+    const t = this.clock();
+    const held = t < this.holdUntil;
+    return {
+      held: held,
+      remainingMs: held ? this.holdUntil - t : 0,
+      totalMs: held ? this.holdMs : 0,
+    };
   }
 
   /* ------------------------------------------------------------ pasos */
@@ -541,6 +589,7 @@ export class GainGuardEngine {
   status(): {
     ticks: number;
     bus: BusGuardConfig;
+    rearm: RearmState;
     link: Record<string, unknown>;
     channels: Array<Record<string, unknown>>;
   } {
@@ -571,6 +620,7 @@ export class GainGuardEngine {
     return {
       ticks: this.ticks,
       bus: Object.assign({}, this.busCfg),
+      rearm: this.rearmState(),
       link: this.adapter.linkStatus(),
       channels: channels,
     };

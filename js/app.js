@@ -1580,6 +1580,8 @@ CueDesk.app = { view: "mixer" };
      umbral son preferencias locales (localStorage, aún sin enviar);
      StageGuard y PreGuard sí llegan al backend, uno por canal. */
   const GG_KEY = "cuedesk.gainguard";
+  /** Plazo de la pausa REARM, en ms: la interfaz lo pide y el motor lo impone. */
+  const GG_REARM_MS = 20000;
   const GG_MODES = [
     { id: "rms", label: "RMS", options: ["Off", "±3 dB", "±5 dB"] },
     { id: "lufs", label: "LUFS", options: ["Off", "-18 LUFS", "-23 LUFS"] },
@@ -1699,6 +1701,83 @@ CueDesk.app = { view: "mixer" };
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ bus: { enabled: !!on } }),
     }).catch(function () {});
+  }
+
+  /* ------------------------------------------------- REARM (pausa de GG) */
+
+  /* El botón REARM pausa la automatización de GainGuard un plazo fijo y la deja
+     rearmarse sola: ni fader, ni previo, ni buses. La configuración de los
+     canales no se toca (guardas, umbrales, referencias y desplazamientos siguen
+     intactos). El reloj autoritativo vive en @cuedesk/core
+     (`GET /api/gainguard/rearm`): la interfaz sólo dibuja la cuenta atrás y se
+     resincroniza al abrir el panel, por si la página se recargó a mitad. */
+  let ggRearmTimer = null;
+
+  function ggRearmPaint(remainingMs) {
+    const btn = document.querySelector('[data-action="gg-rearm"]');
+    const label = document.querySelector("[data-gg-rearm-label]");
+    if (!btn || !label) return;
+    const held = remainingMs > 0;
+    const secs = Math.ceil(remainingMs / 1000);
+    btn.classList.toggle("is-held", held);
+    btn.setAttribute("aria-pressed", held ? "true" : "false");
+    label.textContent = held ? "REARM (" + secs + "s)" : "REARM";
+    btn.title = held
+      ? "GainGuard en pausa: vuelve sola en " + secs + " s"
+      : "Pausa GainGuard " + GG_REARM_MS / 1000 + " s (vuelve sola)";
+  }
+
+  function ggRearmStop() {
+    if (ggRearmTimer === null) return;
+    clearInterval(ggRearmTimer);
+    ggRearmTimer = null;
+  }
+
+  /* Cuenta atrás desde `fromMs`. Al llegar a 0 el motor ya se ha rearmado solo:
+     no hay nada que enviar. */
+  function ggRearmCountdown(fromMs) {
+    ggRearmStop();
+    const remaining = Math.max(0, fromMs);
+    ggRearmPaint(remaining);
+    if (remaining <= 0) return;
+    const until = Date.now() + remaining;
+    ggRearmTimer = setInterval(function () {
+      const left = until - Date.now();
+      ggRearmPaint(left > 0 ? left : 0);
+      if (left <= 0) ggRearmStop();
+    }, 250);
+  }
+
+  /* Clic en REARM: arranca la pausa en el motor y su cuenta atrás. */
+  function ggRearmStart() {
+    if (typeof fetch !== "function") {
+      ggRearmCountdown(GG_REARM_MS);
+      return;
+    }
+    fetch("/api/gainguard/rearm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ms: GG_REARM_MS }),
+    })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (state) {
+        const left = state && Number.isFinite(state.remainingMs) ? state.remainingMs : GG_REARM_MS;
+        ggRearmCountdown(left);
+      })
+      .catch(function () { ggRearmCountdown(GG_REARM_MS); });
+  }
+
+  /* Resincroniza con el motor al abrir el panel: si una pausa sigue viva tras
+     una recarga, la cuenta atrás continúa donde iba. */
+  function ggRearmSync() {
+    if (typeof fetch !== "function") return;
+    fetch("/api/gainguard/rearm")
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (state) {
+        if (!state) return;
+        ggRearmCountdown(Number.isFinite(state.remainingMs) ? state.remainingMs : 0);
+      })
+      .catch(function () {});
   }
 
   function ggStrip(ch, index, save) {
@@ -1930,19 +2009,20 @@ CueDesk.app = { view: "mixer" };
       panel.hidden = !open;
       btn.classList.toggle("is-active", open);
       btn.setAttribute("aria-expanded", open ? "true" : "false");
+      /* Al abrir, la cuenta atrás se resincroniza con el motor: así una pausa
+         en curso sobrevive a una recarga de la página. */
+      if (open) ggRearmSync();
     }
 
     btn.addEventListener("click", function () {
       setOpen(panel.hidden);
     });
 
-    const closeBtn = panel.querySelector('[data-action="gg-close"]');
-    if (closeBtn) {
-      closeBtn.addEventListener("click", function () {
-        setOpen(false);
-        btn.focus();
-      });
-    }
+    /* El botón REARM sustituye al antiguo cierre: pausa la automatización y
+       vuelve sola. Cerrar la pantalla sigue disponible con Esc o cambiando de
+       vista principal. */
+    const rearmBtn = panel.querySelector('[data-action="gg-rearm"]');
+    if (rearmBtn) rearmBtn.addEventListener("click", ggRearmStart);
 
     // Cambiar de vista principal cierra la pantalla: si no, quedaría todo
     // tapado por el panel y parecería que la pestaña no responde.

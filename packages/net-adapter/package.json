@@ -1,0 +1,11 @@
+{
+  "name": "@cuedesk/net-adapter",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "CueDesk — contrato de red del appliance: Wi-Fi 7 (MLO), QoS/DSCP y Bluetooth. Sin E/S.",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

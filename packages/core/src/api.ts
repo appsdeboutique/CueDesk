@@ -6,11 +6,13 @@
  *   GET  /api/gainguard                        estado completo
  *   GET  /api/gainguard/channels/:id           un canal
  *   GET  /api/gainguard/locks                  ids bloqueados + banco de previos
+ *   GET  /api/gainguard/rearm                  estado de la pausa REARM (cuenta atrás)
  *   POST /api/gainguard/config                 BusGuard, base, Stage, PreGuard, buses, fuente
  *   POST /api/gainguard/meters                 telemetría de 32 canales { levels, ts? }
  *   POST /api/gainguard/console                cambio de dominio { channel, kind, bus, db, on, origin }
  *   POST /api/gainguard/send/:id               envío a bus { bus, db }
  *   POST /api/gainguard/channels/:id/arm       levanta el bloqueo de la base
+ *   POST /api/gainguard/rearm                  pausa temporal { ms? } y rearme automático
  *
  * `config` acepta la forma de la pantalla GainGuard, donde el selector de
  * modo (rms | lufs) y el desplegable de umbral (Off · ±3/±5 dB · −18/−23 LUFS)
@@ -30,6 +32,15 @@ import { HttpError } from "./httpError.ts";
 import type { BaseMode } from "./types.ts";
 
 const MODES: BaseMode[] = ["off", "rms", "lufs"];
+
+/** DTO de `POST /api/gainguard/rearm`: pausa temporal pedida por la interfaz. */
+interface RearmRequest {
+  /** Duración de la pausa en ms; omitido, el motor usa su plazo (`rearmMs`). */
+  ms?: number;
+}
+
+/** Tope de la pausa REARM que acepta la frontera (una hora). */
+const REARM_MAX_MS = 3600000;
 
 function parseThreshold(v: unknown): number | undefined {
   if (typeof v === "number") return Number.isFinite(v) ? v : undefined;
@@ -228,6 +239,25 @@ export function mountSuiteRoutes(router: any, engine: GainGuardEngine, adapter: 
     if (!engine.channel(id)) throw new HttpError(404, "Canal no válido: " + id);
     engine.arm(id);
     return { armed: true };
+  });
+
+  /* Pausa temporal de la automatización (botón REARM). `POST` la arranca —por
+     defecto con el plazo del motor (20 s)— y `GET` publica el estado, para que
+     la interfaz resincronice su cuenta atrás tras una recarga. La configuración
+     de los canales queda intacta: sólo se silencian las decisiones mientras
+     dure la pausa; al agotarse, el motor se rearma solo. */
+  router.get("/api/gainguard/rearm", function () {
+    return engine.rearmState();
+  });
+
+  router.post("/api/gainguard/rearm", function (ctx: any) {
+    const body = (ctx.body || {}) as RearmRequest;
+    if (body.ms === undefined) return engine.hold();
+    const ms = Number(body.ms);
+    if (!Number.isFinite(ms) || ms < 0 || ms > REARM_MAX_MS) {
+      throw new HttpError(400, "'ms' fuera de rango (0…" + REARM_MAX_MS + ")");
+    }
+    return engine.hold(ms);
   });
 
   /* ------- consola (driver): telemetría, diagnóstico y escritura directa ---- */

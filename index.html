@@ -408,7 +408,7 @@
       <!-- Pantalla emergente sobre el escenario: mismo esqueleto que Setup ›
            Preamps (bloques de 8 canales) pero sin "Global options". La cabecera
            reparte tres zonas: Preamp Block a la izquierda, el rótulo centrado
-           y BusGuard (encendido o no) con el botón de cerrar a la derecha. Por
+           y BusGuard (encendido o no) con el botón REARM a la derecha. Por
            canal: botón StageGuard (cian apagado / ámbar encendido) encima del
            conmutador deslizante RMS/LUFS —en el sitio del 48V— y desplegable
            de umbral —con "Off" en las dos escalas— en el del Ø.
@@ -432,8 +432,12 @@
                         aria-pressed="false">ON</button>
               </div>
             </div>
-            <button type="button" class="gg__close" data-action="gg-close"
-                    aria-label="Cerrar GainGuard" title="Cerrar (Esc)">✕</button>
+            <button type="button" class="gg__rearm" data-action="gg-rearm"
+                    aria-label="Rearmar GainGuard" aria-pressed="false"
+                    title="Pausa GainGuard 20 s (vuelve sola)">
+              <span class="gg__rearm__dot" aria-hidden="true"></span>
+              <span class="gg__rearm__label" data-gg-rearm-label>REARM</span>
+            </button>
           </div>
         </div>
         <div class="gg__body">
@@ -457,5 +461,6 @@
   <script defer src="js/meters.js"></script>
   <script defer src="js/mixer.js"></script>
   <script defer src="js/app.js"></script>
+  <script defer src="js/network.js"></script>
 </body>
 </html>

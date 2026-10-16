@@ -22,6 +22,20 @@ export type ControlKind = "fader" | "headamp" | "send";
 
 export type BaseMode = "off" | "rms" | "lufs";
 
+/**
+ * Estado de la pausa temporal de GainGuard (botón REARM de la interfaz). La
+ * automatización queda detenida `remainingMs` y vuelve sola; la configuración y
+ * el estado por canal no se tocan en ningún momento.
+ */
+export interface RearmState {
+  /** `true` mientras la automatización está pausada. */
+  held: boolean;
+  /** Milisegundos que faltan para el rearme automático (0 si no hay pausa). */
+  remainingMs: number;
+  /** Duración total de la pausa en curso (0 si no hay pausa). */
+  totalMs: number;
+}
+
 export interface BaseConfig {
   mode: BaseMode;
   /** rms: tolerancia en dB (3 ó 5). lufs: objetivo en LUFS (−18 ó −23). */
@@ -60,6 +74,11 @@ export interface EngineConfig {
   tickMs: number;
   deadbandDb: number;
   cooldownMs: number;
+  /**
+   * Pausa del botón REARM: la automatización se detiene y vuelve sola pasados
+   * estos milisegundos, sin perder la configuración.
+   */
+  rearmMs: number;
   /** Paso del previo por tick al atenuar (Stage Guard). */
   stageRampDb: number;
   /** Paso del previo por tick al restaurar: rápido, la voz no puede esperar. */
@@ -141,6 +160,7 @@ export const DEFAULT_ENGINE: EngineConfig = {
   tickMs: 100,
   deadbandDb: 0.5,
   cooldownMs: 2500,
+  rearmMs: 20000,
   stageRampDb: 1,
   stageRestoreDb: 5,
   preStepDb: 0.5,

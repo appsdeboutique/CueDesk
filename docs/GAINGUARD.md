@@ -165,6 +165,8 @@ Base: `http://127.0.0.1:8765/api/gainguard` (el puerto depende del arranque).
 | `POST /api/gainguard/console` | `{ channel, kind, db?, bus?, on?, origin? }` | Resultado de la ingesta. |
 | `POST /api/gainguard/send/:id` | `{ bus: 1…16, db }` | Canal actualizado. |
 | `POST /api/gainguard/channels/:id/arm` | — | `{ armed: true }` (levanta el bloqueo de la base). |
+| `GET /api/gainguard/rearm` | — | `{ held, remainingMs, totalMs }`: estado de la pausa REARM. |
+| `POST /api/gainguard/rearm` | `{ ms? }` | Estado de la pausa; sin `ms`, el plazo del motor (20 s). |
 
 ### `POST /config`
 
@@ -225,6 +227,23 @@ canal con telemetría. Es el sondeo que usa la interfaz mientras no existe el
 canal en tiempo real: `ingestLevel` purga lo más viejo que `levelRetainMs`, así
 que un canal sin datos deja de publicarse y su vúmetro cae a la simulación.
 
+### Pausa REARM (`GET` y `POST /rearm`)
+
+Pausa temporal de la automatización (botón **REARM** de la pantalla). El motor
+deja de decidir durante `ms` (por defecto `rearmMs`, 20 s) y se **rearma solo**
+al agotarse el plazo: ni fader, ni previo, ni buses reciben un ajuste mientras
+`held` es `true`. **La configuración no se toca**: guardas, umbrales, referencias
+y desplazamientos quedan intactos, y la telemetría y los cambios de la consola
+se siguen registrando para que el motor conozca el estado real al volver.
+
+```json
+{ "ms": 20000 }
+```
+
+`GET /rearm` publica el mismo estado (`held`, `remainingMs`, `totalMs`) para que
+la interfaz resincronice su cuenta atrás tras una recarga. `ms` fuera del rango
+`0…3600000` responde `400`; `0` equivale a un rearme inmediato.
+
 ### Rutas de consola (transporte y puente)
 
 | Método y ruta | Cuerpo | Devuelve |
@@ -283,7 +302,12 @@ npm test         # motor, analizadores y driver (TS)
 - El botón **GainGuard** de la barra global abre la pantalla de ajustes.
 - **Cabecera en tres zonas**: «Channel Block» a la izquierda, el nombre
   «GainGuard®» centrado —un 30 % más grande que antes— y **BusGuard** con el
-  botón de cerrar a la derecha.
+  botón **REARM** a la derecha.
+- **REARM** (rojo): un clic pausa la automatización 20 s (`POST /rearm`) y el
+  botón muestra la cuenta atrás —`REARM (20s)`… `REARM (0s)`—; al agotarse el
+  plazo el motor se rearma solo. Durante la pausa el fondo pasa a rojo oscuro y
+  el punto late. La configuración no se toca. Cerrar la pantalla sigue
+  disponible con `Esc` o cambiando de vista principal.
 - **BusGuard** es el único interruptor de cabecera (global, todos los canales).
 - **StageGuard** es el nombre del botón por canal, encima del selector RMS/LUFS:
   cian apagado, ámbar encendido.

@@ -497,6 +497,48 @@ test("un previo sin valor numérico se rechaza (el +48 V no es magnitud del moto
   assert.equal(r.reason, "not-a-level");
 });
 
+/* ------------------------------------------------------------ rearm (pausa) */
+
+test("REARM: la automatización se pausa y vuelve sola sin tocar la configuración", function () {
+  const env = make();
+  env.engine.configureStage("ch.01", { enabled: true, threshold: -50, duckingDepth: 10, holdMs: 1000 });
+  preamp(env, 20, 0);
+  env.at(0); env.engine.tick(0);
+
+  const state = env.engine.hold(20000);
+  assert.equal(state.held, true);
+  assert.equal(state.totalMs, 20000);
+  assert.equal(state.remainingMs, 20000);
+
+  /* Durante la pausa, silencio total: ni un ajuste aunque falte la voz. */
+  env.fake.clear();
+  run(env, 0, 19900, function (t) { env.engine.ingestLevel("ch.01", -80, t); });
+  assert.equal(env.fake.calls.length, 0, "muda durante la pausa");
+  assert.equal(env.engine.channel("ch.01")!.headamp, 20, "el previo no se toca");
+  assert.equal(env.engine.status().rearm.held, true);
+
+  /* Cumplido el plazo, se rearma sola y reanuda la automatización. */
+  run(env, 20000, 22000, function (t) { env.engine.ingestLevel("ch.01", -80, t); });
+  assert.equal(env.engine.status().rearm.held, false, "rearmada sola");
+  assert.ok(env.fake.preamp().length > 0, "la automatización se reanuda");
+
+  /* La configuración del canal sigue intacta. */
+  assert.equal(env.engine.channel("ch.01")!.stageCfg.enabled, true);
+  assert.equal(env.engine.channel("ch.01")!.stageCfg.duckingDepth, 10);
+});
+
+test("REARM: sin plazo usa el del motor y rearm() levanta la pausa", function () {
+  const env = make();
+  const state = env.engine.hold();
+  assert.equal(state.held, true);
+  assert.equal(state.totalMs, 20000);
+
+  const cleared = env.engine.rearm();
+  assert.equal(cleared.held, false);
+  assert.equal(cleared.remainingMs, 0);
+  assert.equal(cleared.totalMs, 0);
+});
+
 test("el ciclo periódico arranca y se detiene sin dejar temporizadores", function () {
   const env = make();
   env.engine.start();
