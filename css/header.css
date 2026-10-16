@@ -524,8 +524,8 @@ button.chip:hover {
 
 /* GainGuard: mismo lenguaje visual que los botones M/S de las tiras —celeste,
    sin relleno y con el rótulo centrado en su ancho mínimo—; al activarse se
-   rellena de cian. El rótulo va en "Beyond The Mountains" (display de un solo
-   peso, por eso no se le pide negrita sintética). */
+   rellena de cian. El rótulo usa la MISMA tipografía que el resto de botones
+   del mezclador (Inter, var(--font)) para no desentonar. */
 .globalbar .gb-brand__btn {
   justify-content: center;
   min-width: 96px;
@@ -535,9 +535,9 @@ button.chip:hover {
   background: none;
   border: 1px solid var(--cyan-bright);
   color: var(--cyan-bright);
-  font-family: var(--font-display);
+  font-family: var(--font);
   font-size: 14px;
-  font-weight: 400;
+  font-weight: 600;
   letter-spacing: 0;
 }
 
