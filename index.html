@@ -24,6 +24,7 @@
       /ch/NN/config/name      string [12]
       /ch/NN/config/color     enum {OFF,RD,GN,YE,BL,MG,CY,WH}
       /headamp/NNN/gain       linf [-12 … +60, 0.5]   (vista GAIN · canales)
+                              NNN: 000-031 Local · 032-079 AES50 A · 080-127 AES50 B
       /auxin/NN/preamp/trim   linf [-18 … +18, 0.25]  (vista GAIN · aux)
       /auxin/NN/… · /fxrtn/NN/… · /bus/NN/… · /dca/N/{fader,on}
       /main/st/mix/fader · /main/st/mix/on · /main/m/…
@@ -67,6 +68,7 @@
   <link rel="stylesheet" href="css/header.css">
   <link rel="stylesheet" href="css/banks.css">
   <link rel="stylesheet" href="css/strips.css">
+  <link rel="stylesheet" href="css/cuebox.css">
 </head>
 <body>
 
@@ -199,6 +201,7 @@
         <button type="button" class="tab" role="tab" aria-selected="false" data-setup-tab="midi">Midi Control</button>
         <button type="button" class="tab" role="tab" aria-selected="false" data-setup-tab="preamps">Preamps</button>
         <button type="button" class="tab" role="tab" aria-selected="false" data-setup-tab="card">Card</button>
+        <button type="button" class="tab" role="tab" aria-selected="false" data-setup-tab="cuebox">CueBox®</button>
       </nav>
     </div>
 
@@ -379,6 +382,9 @@
           <section class="setup__pane" data-setup-pane="card" hidden>
             <div class="setup__grid" data-setup-render="card"></div>
           </section>
+          <section class="setup__pane" data-setup-pane="cuebox" hidden>
+            <div class="cuebox" data-setup-render="cuebox"></div>
+          </section>
         </div>
       </section>
 
@@ -401,7 +407,7 @@
       <!-- --------------------------- GAIN GUARD --------------------------- -->
       <!-- Pantalla emergente sobre el escenario: mismo esqueleto que Setup ›
            Preamps (bloques de 8 canales) pero sin "Global options". La cabecera
-           reparte tres zonas: Channel Block a la izquierda, el rótulo centrado
+           reparte tres zonas: Preamp Block a la izquierda, el rótulo centrado
            y BusGuard (encendido o no) con el botón de cerrar a la derecha. Por
            canal: botón StageGuard (cian apagado / ámbar encendido) encima del
            conmutador deslizante RMS/LUFS —en el sitio del 48V— y desplegable
@@ -410,8 +416,8 @@
       <section class="gg" id="gg-panel" hidden role="dialog" aria-label="GainGuard">
         <div class="gg__head">
           <label class="setup__row gg__pick">
-            <span>Channel Block</span>
-            <select data-gg-block aria-label="Channel Block"></select>
+            <span>Preamp Block</span>
+            <select data-gg-block aria-label="Preamp Block"></select>
           </label>
           <h2 class="gg__title">GainGuard<span class="gg__reg">®</span><span class="gg__mark">StageNet Systems</span></h2>
           <div class="gg__headside">
@@ -439,7 +445,7 @@
     <!-- ================================ FOOTER ============================ -->
     <footer class="footer">
       <p>© 2026 StageNet Systems. All rights reserved.</p>
-      <span class="footer__version" title="CueDesk · versión de la interfaz">v1.0.24</span>
+      <span class="footer__version" title="CueDesk · versión de la interfaz">v1.0.25</span>
     </footer>
   </div>
 

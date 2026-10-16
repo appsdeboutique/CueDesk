@@ -10,3 +10,6 @@ Desktop.ini
 
 # Dependencias
 node_modules/
+
+# Arte de origen (Photoshop) — no entra al repo
+*.psd

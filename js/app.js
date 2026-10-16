@@ -192,12 +192,29 @@ CueDesk.app = { view: "mixer" };
     "Este cambio puede interrumpir el audio o la conexión de la consola. ¿Continuar?";
   const SETUP_LOCAL_KEY = "cuedesk.setup.local";
   const SETUP_IOENABLE = "/-prefs/remote/ioenable";
-  const PREAMP_BLOCKS = [
-    { label: "Local 1-8", base: 0 },
-    { label: "Local 9-16", base: 8 },
-    { label: "Local 17-24", base: 16 },
-    { label: "Local 25-32", base: 24 },
+  /* Bancos de previos de un X32 y su primer índice OSC (`/headamp/NNN`). */
+  const PREAMP_SOURCES = [
+    { id: "local", label: "Local", origin: 0 },
+    { id: "aes50a", label: "AES50 A", origin: 32 },
+    { id: "aes50b", label: "AES50 B", origin: 80 },
   ];
+  /* Doce entradas: cada banco, en grupos de 8 previos. `base` es el índice
+     0…31 dentro de la pantalla (el bloque de canales 1-8, 9-16, 17-24, 25-32)
+     y `block` su número de bloque (0…3). El origen OSC del previo de la tira
+     k del bloque es `origin + base + k`. */
+  const PREAMP_BLOCKS = [];
+  PREAMP_SOURCES.forEach(function (s) {
+    [0, 8, 16, 24].forEach(function (base) {
+      PREAMP_BLOCKS.push({
+        label: s.label + " " + (base + 1) + "-" + (base + 8),
+        source: s.id,
+        origin: s.origin,
+        base: base,
+        block: base / 8,
+      });
+    });
+  });
+  const PREAMP_SOURCE_IDS = PREAMP_SOURCES.map(function (s) { return s.id; });
   let setupIoMask = 0;
   const setupBitInputs = [];
 
@@ -451,12 +468,6 @@ CueDesk.app = { view: "mixer" };
       op.textContent = b.label;
       pick.appendChild(op);
     });
-    ["AES50 A 1-8", "AES50 B 1-8"].forEach(function (t) {
-      const op = document.createElement("option");
-      op.textContent = t;
-      op.disabled = true;
-      pick.appendChild(op);
-    });
     pickWrap.appendChild(pickName);
     pickWrap.appendChild(pick);
     head.appendChild(pickWrap);
@@ -477,8 +488,9 @@ CueDesk.app = { view: "mixer" };
       wrap.className = "setup__strips";
       wrap.hidden = i !== 0;
       for (let k = 0; k < 8; k++) {
-        const n = b.base + k + 1;
-        wrap.appendChild(preampStrip(n, String(n - 1).padStart(3, "0")));
+        const n = b.base + k + 1;                                   // 1…32 en el banco
+        const idx = String(b.origin + n - 1).padStart(3, "0");      // /headamp/NNN
+        wrap.appendChild(preampStrip(n, idx));
       }
       box.appendChild(wrap);
       return wrap;
@@ -506,6 +518,151 @@ CueDesk.app = { view: "mixer" };
     });
   }
 
+  /* -------------------------------------------------------------- CueBox® */
+
+  /* CueBox® es el módulo de hardware y red de la app: selección de consola y
+     OSC, los dos puertos Ethernet (ETH0 consola · ETH1 control/iluminación) y
+     los disparadores MIDI (RTP-MIDI hacia QLC+, sincronía B.Beat). Esta
+     subpestaña es un HUB: una tarjeta por bloque, con su estado y sus
+     controles. El rótulo visible lleva la marca (®); el identificador y el
+     nombre interno van sin ella (`cuebox`). Los controles son de interfaz:
+     todavía no hay rutas OSC para leerlos ni escribirlos. */
+  const CUEBOX_SPEC = [
+    {
+      id: "consoles",
+      mono: "OSC",
+      title: "Consoles & OSC",
+      sub: "Consola, IP destino y puerto de control",
+      badge: { text: "Sin respuesta", tone: "warn" },
+      items: [
+        { kind: "select", label: "Consola", value: 0, options: ["Behringer X32", "Midas M32", "X32 Rack", "M32R"] },
+        { kind: "text", label: "IP destino", value: "192.168.1.10" },
+        { kind: "num", label: "Puerto OSC", value: 10023, min: 1, max: 65535, step: 1 },
+      ],
+    },
+    {
+      id: "network",
+      mono: "NET",
+      title: "CueBox® & Network",
+      sub: "ETH0 consola · ETH1 control e iluminación",
+      badge: { text: "Switch OK", tone: "ok" },
+      items: [
+        { kind: "text", label: "ETH0 · consola", value: "192.168.1.10/24" },
+        { kind: "text", label: "ETH1 · control", value: "10.0.0.1/24" },
+        { kind: "select", label: "Direccionamiento", value: 1, options: ["DHCP", "Static"] },
+      ],
+    },
+    {
+      id: "midi",
+      mono: "MIDI",
+      title: "MIDI & Triggers",
+      sub: "MIDI físico, RTP-MIDI y B.Beat",
+      badge: { text: "Pendiente", tone: "dim" },
+      items: [
+        { kind: "select", label: "Puerto MIDI", value: 0, options: ["In", "Out", "Thru"] },
+        { kind: "bool", label: "RTP-MIDI → QLC+", value: 0 },
+        { kind: "bool", label: "Sincronía B.Beat", value: 0 },
+      ],
+    },
+  ];
+
+  function cueboxRow(item) {
+    const row = document.createElement("label");
+    row.className = "setup__row";
+    const name = document.createElement("span");
+    name.textContent = item.label;
+    row.appendChild(name);
+
+    let input;
+    if (item.kind === "select") {
+      input = document.createElement("select");
+      (item.options || []).forEach(function (text, i) {
+        const op = document.createElement("option");
+        op.value = String(i);
+        op.textContent = text;
+        input.appendChild(op);
+      });
+      input.value = String(item.value || 0);
+    } else if (item.kind === "num") {
+      input = document.createElement("input");
+      input.type = "number";
+      input.value = String(item.value);
+      input.min = String(item.min);
+      input.max = String(item.max);
+      input.step = String(item.step);
+    } else if (item.kind === "bool") {
+      input = document.createElement("input");
+      input.type = "checkbox";
+      input.checked = Number(item.value) === 1;
+    } else {
+      input = document.createElement("input");
+      input.type = "text";
+      input.value = item.value === undefined ? "" : String(item.value);
+    }
+    /* El binding de Setup ignora lo que no trae `data-setup-osc` ni
+       `data-setup-local`, así que estos controles no mandan nada a la consola. */
+    input.dataset.cuebox = item.label;
+    row.appendChild(input);
+    return row;
+  }
+
+  function cueboxCard(spec) {
+    const card = document.createElement("section");
+    card.className = "cuebox__card";
+    card.dataset.cueboxCard = spec.id;
+
+    const head = document.createElement("header");
+    head.className = "cuebox__head";
+
+    const mono = document.createElement("span");
+    mono.className = "cuebox__mono";
+    mono.textContent = spec.mono;
+    mono.setAttribute("aria-hidden", "true");
+
+    const titles = document.createElement("div");
+    titles.className = "cuebox__titles";
+    const title = document.createElement("h3");
+    title.className = "cuebox__title";
+    title.textContent = spec.title;
+    const sub = document.createElement("p");
+    sub.className = "cuebox__sub";
+    sub.textContent = spec.sub;
+    titles.appendChild(title);
+    titles.appendChild(sub);
+
+    const tone = spec.badge && spec.badge.tone ? spec.badge.tone : "dim";
+    const badge = document.createElement("span");
+    badge.className = "cuebox__badge is-" + tone;
+    badge.textContent = spec.badge ? spec.badge.text : "";
+
+    head.appendChild(mono);
+    head.appendChild(titles);
+    head.appendChild(badge);
+    card.appendChild(head);
+
+    const body = document.createElement("div");
+    body.className = "cuebox__body";
+    (spec.items || []).forEach(function (item) {
+      body.appendChild(cueboxRow(item));
+    });
+    card.appendChild(body);
+
+    return card;
+  }
+
+  function renderCueBox(box) {
+    CUEBOX_SPEC.forEach(function (spec) {
+      box.appendChild(cueboxCard(spec));
+    });
+
+    const note = document.createElement("p");
+    note.className = "cuebox__note setup__hint";
+    note.textContent =
+      "Estado y valores de la interfaz. La lectura y escritura de la consola, " +
+      "de los puertos ETH0/ETH1 y del MIDI llegará con la integración de CueBox®.";
+    box.appendChild(note);
+  }
+
   function renderSetup() {
     ["connection", "mixer", "gui", "midi"].forEach(function (key) {
       const box = setupBox(key);
@@ -515,6 +672,8 @@ CueDesk.app = { view: "mixer" };
     if (pre) renderPreamps(pre);
     const card = setupBox("card");
     if (card) renderCard(card);
+    const cbx = setupBox("cuebox");
+    if (cbx) renderCueBox(cbx);
   }
 
   function setupText(el) {
@@ -1455,6 +1614,7 @@ CueDesk.app = { view: "mixer" };
           opt: opt,
           stage: !!(c && c.stage),
           pre: !!(c && c.pre),
+          src: c && PREAMP_SOURCE_IDS.indexOf(c.src) >= 0 ? c.src : "local",
         };
       }),
     };
@@ -1490,6 +1650,24 @@ CueDesk.app = { view: "mixer" };
     }).catch(function () {});
   }
 
+  /* Banco de previos de un bloque de 8 canales (Local, AES50 A, AES50 B): las
+     guardas pasan a apuntar al `/headamp` de ese banco. */
+  function ggPushSource(startIndex, source, count) {
+    if (typeof fetch !== "function") return;
+    const channels = [];
+    for (let k = 0; k < count; k++) {
+      channels.push({
+        id: "ch." + String(startIndex + k + 1).padStart(2, "0"),
+        source: source,
+      });
+    }
+    fetch("/api/gainguard/config", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ channels: channels }),
+    }).catch(function () {});
+  }
+
   /* Al arrancar se sincronizan los 32 canales en una sola petición (StageGuard
      y PreGuard). El motor arranca todo apagado (no persiste entre reinicios),
      pero la pantalla es la referencia: si un canal quedó activo de una sesión
@@ -1501,6 +1679,7 @@ CueDesk.app = { view: "mixer" };
         id: "ch." + String(i + 1).padStart(2, "0"),
         stage: { enabled: !!c.stage },
         pre: { enabled: !!c.pre },
+        source: c.src,
       };
     });
     fetch("/api/gainguard/config", {
@@ -1683,28 +1862,60 @@ CueDesk.app = { view: "mixer" };
     });
     if (monSw) syncMon();
 
-    PREAMP_BLOCKS.forEach(function (b, i) {
+    /* Cuatro vistas (bloques de 8 canales) y doce opciones en el selector:
+       cada banco de previos (Local, AES50 A, AES50 B) con sus cuatro bloques.
+       Elegir una opción muestra ese bloque y fija el banco de sus 8 canales,
+       que es a qué /headamp apuntan las guardas. */
+    for (let bi = 0; bi < 4; bi++) {
       const view = document.createElement("div");
       view.className = "setup__strips";
-      view.hidden = i !== 0;
+      view.hidden = bi !== 0;
       for (let k = 0; k < 8; k++) {
-        const index = b.base + k;
+        const index = bi * 8 + k;
         view.appendChild(ggStrip(state.ch[index], index, save));
       }
       box.appendChild(view);
       blocks.push(view);
+    }
 
+    PREAMP_BLOCKS.forEach(function (b, i) {
       const op = document.createElement("option");
       op.value = String(i);
       op.textContent = b.label;
       pick.appendChild(op);
     });
 
+    function setBlockSource(block, source) {
+      let changed = false;
+      for (let k = 0; k < 8; k++) {
+        const c = state.ch[block * 8 + k];
+        if (c.src !== source) {
+          c.src = source;
+          changed = true;
+        }
+      }
+      if (!changed) return;
+      save();
+      ggPushSource(block * 8, source, 8);
+    }
+
     pick.addEventListener("change", function () {
+      const b = PREAMP_BLOCKS[Number(pick.value)];
       blocks.forEach(function (v, i) {
-        v.hidden = i !== Number(pick.value);
+        v.hidden = i !== b.block;
       });
+      setBlockSource(b.block, b.source);
     });
+
+    /* Al abrir, el selector refleja el banco del primer bloque. */
+    let initial = 0;
+    for (let i = 0; i < PREAMP_BLOCKS.length; i++) {
+      if (PREAMP_BLOCKS[i].block === 0 && PREAMP_BLOCKS[i].source === state.ch[0].src) {
+        initial = i;
+        break;
+      }
+    }
+    pick.value = String(initial);
   }
 
   function initGainGuard() {

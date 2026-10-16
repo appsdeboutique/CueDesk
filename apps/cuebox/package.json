@@ -1,0 +1,7 @@
+{
+  "name": "@cuedesk/cuebox",
+  "version": "0.1.0",
+  "private": true,
+  "description": "CueDesk — app de composición: transporte OSC (dgram), enrutador HTTP y cableado del motor.",
+  "main": "./oscEngine.js"
+}

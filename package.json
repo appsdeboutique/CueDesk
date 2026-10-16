@@ -6,8 +6,12 @@
   "engines": {
     "node": ">=18"
   },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
   "scripts": {
     "start": "node server.js --port 8765",
-    "test": "node --test \"backend/test/*.test.js\" \"backend/suite/test/*.test.ts\""
+    "test": "node --test \"packages/*/test/*.test.ts\""
   }
 }

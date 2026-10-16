@@ -6,16 +6,34 @@ y las rutas OSC que usa.
 
 ## 1. Mapa del código
 
+CueDesk está partido en tres capas que no se miran entre sí:
+
+| Capa | Paquete | Responsabilidad |
+| --- | --- | --- |
+| **Motor** | `packages/core` | Guardas, estado por canal y decisiones (`tick` de 100 ms). |
+| **Driver** | `packages/console-x32` | Traduce dominio ↔ OSC de la X32: rutas, *taper*, previo y ecos. |
+| **Contrato** | `packages/console-adapter` | `ConsoleAdapter` / `ConsoleLink`: la frontera entre motor y driver. |
+| **App** | `apps/cuebox` + `server.js` | Transporte UDP/OSC, enrutador HTTP, estáticos y cableado. |
+
 | Fichero | Contenido |
 | --- | --- |
-| `backend/suite/gainGuardEngine.ts` | Motor: ciclo de 100 ms, pipeline, estado por canal. |
-| `backend/suite/guards.ts` | Decisiones puras (`baseVerdict`, `stageDecision`, `preDecision`, `busDelta`, `rmsOf`, `clamp`). |
-| `backend/suite/oscHandler.ts` | Marca de origen, conversión *taper* de la X32 y filtro de ecos. |
-| `backend/suite/types.ts` | Tipos y valores por defecto de toda la configuración. |
-| `backend/suite/api.ts` | Rutas HTTP colgadas del enrutador del backend. |
-| `backend/gainGuard/analyzers/rmsAnalyzer.js` | Medidor RMS (CommonJS, reutilizado). |
-| `backend/gainGuard/analyzers/lufsAnalyzer.js` | Medidor LUFS con filtro K (CommonJS, reutilizado). |
-| `backend/suite/test/*.test.ts` | Pruebas del motor y del handler. |
+| `packages/console-adapter/src/adapter.ts` | Contrato `ConsoleAdapter`: el único lenguaje del motor (canales, dB, previo). |
+| `packages/console-adapter/src/link.ts` | Contrato `ConsoleLink`: el puerto de bajo nivel (`send` / `on` / `listen`). |
+| `packages/console-x32/src/X32Adapter.ts` | Driver X32: conversión, rutas, descarte de ecos y banco de previo por canal. |
+| `packages/console-x32/src/taper.ts` · `paths.ts` · `preamps.ts` | Taper de 4 tramos, rutas OSC y tabla de bancos de previo (Local / AES50 A / AES50 B). |
+| `packages/core/src/gainGuardEngine.ts` | Motor: ciclo de 100 ms, pipeline, estado por canal. |
+| `packages/core/src/guards.ts` | Decisiones puras (`baseVerdict`, `stageDecision`, `preDecision`, `busDelta`, `rmsOf`, `clamp`). |
+| `packages/core/src/types.ts` | Tipos y valores por defecto de toda la configuración. |
+| `packages/core/src/api.ts` | Rutas HTTP (`mountSuiteRoutes`): la frontera que recompone `source` / `headampIndex`. |
+| `packages/core/src/analysis/rmsAnalyzer.ts` · `lufsAnalyzer.ts` | Medidores RMS y LUFS con filtro K. |
+| `packages/core/test/*.test.ts` · `packages/console-x32/test/*.test.ts` | Pruebas del motor, de los analizadores y del driver. |
+| `apps/cuebox/oscEngine.js` | Transporte UDP/OSC: implementa `ConsoleLink` sobre `dgram`. |
+| `apps/cuebox/router.js` · `server.js` | Enrutador HTTP y composición raíz (estáticos + cableado). |
+
+El motor **no conoce la consola**: sólo habla `ConsoleAdapter`, así que no ve
+rutas, *taper* ni índices físicos de previo. El driver X32 es quien los posee y
+quien descarta los ecos. La capa HTTP compone `source` / `headampIndex` desde el
+driver para conservar el contrato que ya consume la interfaz.
 
 El motor **nunca** reacciona a un paquete de forma aislada: la telemetría y los
 ecos sólo actualizan el estado. Las decisiones se toman en el ciclo (`tick`).
@@ -47,10 +65,11 @@ Reglas transversales:
 - Cooldown de **2,5 s** por canal tras cada ajuste automático. Bloquea acciones
   nuevas, no una rampa en curso. La **restauración de Stage Guard no espera al
   cooldown**: la voz no puede esperar.
-- Todo mensaje saliente lleva la marca `cuedesk-internal` en el objeto. El
-  protocolo OSC no admite metadatos, así que el filtro de entrada reconoce el
-  eco comparando ruta y valor en una ventana de 500 ms (tolerancia de 0,5 dB para
-  el redondeo de la consola).
+- El descarte del eco es **del driver**, no del motor: como el protocolo OSC no
+  admite metadatos, el driver recuerda lo que escribió y descarta la devolución
+  que coincida en ruta y valor dentro de una ventana de 500 ms (tolerancia de
+  0,5 dB para el redondeo de la consola). Al motor sólo le llegan cambios de
+  dominio con su origen (`console` o `self`).
 
 ### Criterio de actuación (acordado)
 
@@ -125,6 +144,10 @@ necesario para que el ajuste se asiente:
 - Cuando la guarda deja de mover el previo, la ventana expira y el control vuelve
   al operador.
 - El estado se expone por canal en `lock: { active, until }`.
+- Aparte de esa ventana momentánea, el canal tiene un **bloqueo base**
+  (`baseLocked`): si la normalización base descarta demasiados saltos anómalos,
+  deja de corregir el canal y lo marca hasta que el operador lo re-arma
+  (`POST /api/gainguard/channels/:id/arm`). Es persistente, no una ventana.
 - La **referencia única** del previo (`nominalGain`) se mantiene actualizada: un cambio manual reajusta la referencia teniendo en cuenta el desplazamiento que cada guarda aplicaba en ese instante, de modo que no se pierde la protección ni la atenuación por silencio.
 
 ## 6. Interfaz HTTP
@@ -135,10 +158,11 @@ Base: `http://127.0.0.1:8765/api/gainguard` (el puerto depende del arranque).
 | --- | --- | --- |
 | `GET /api/gainguard` | — | Estado completo (todos los canales). |
 | `GET /api/gainguard/channels/:id` | — | Un canal (`ch.01` … `ch.32`). |
-| `GET /api/gainguard/locks` | — | `{ locks: ["ch.01", …] }`: canales con el previo bloqueado. |
+| `GET /api/gainguard/locks` | — | `{ locks, baseLocked, sources }`: canales con el previo bloqueado ahora, canales con el **bloqueo base** persistente, y banco de previo de cada canal. |
+| `GET /api/gainguard/meters` | — | `{ levels: [{ channel, db }], at }`: última lectura por canal. Es el sondeo de los vúmetros. |
 | `POST /api/gainguard/config` | Véase abajo | `{ status }`. |
 | `POST /api/gainguard/meters` | `{ levels: number[32], ts? }` | `{ accepted }`. |
-| `POST /api/gainguard/console` | `{ path, value }` | Resultado del eco. |
+| `POST /api/gainguard/console` | `{ channel, kind, db?, bus?, on?, origin? }` | Resultado de la ingesta. |
 | `POST /api/gainguard/send/:id` | `{ bus: 1…16, db }` | Canal actualizado. |
 | `POST /api/gainguard/channels/:id/arm` | — | `{ armed: true }` (levanta el bloqueo de la base). |
 
@@ -176,30 +200,68 @@ Acepta BusGuard, la base por canal y, por canal, Stage, PreGuard y bus
 
 Array de exactamente 32 niveles en dBFS (uno por canal, en orden). Cualquier
 valor no finito se ignora y no cuenta como aceptado; un array de otra longitud
-responde `409`. Es la vía fiable de telemetría; el *listener* de `/meters/1`
-del servidor es un atajo.
+responde `409`. Es la vía fiable de telemetría; además, el driver escucha
+`/meters/1` por su cuenta (llega en lineal y lo pasa a dBFS).
 
 ### `POST /console`
 
-Introduce un cambio leído de la consola (o un eco):
+Introduce un cambio de **dominio** leído de la consola (o su eco). Nada del
+frontend lo usa: el camino real es el driver, que engancha
+`ConsoleAdapter.onChanges`.
 
 ```json
-{ "path": "/headamp/000/gain", "value": 20 }
+{ "channel": "ch.01", "kind": "fader", "db": -5, "origin": "console" }
 ```
 
-Rutas reconocidas: `/ch/NN/mix/fader`, `/ch/NN/mix/YY/level`, `/headamp/NNN/gain`.
-`value` va **en el valor de cable** de la X32; el handler aplica la conversión de
-*taper* que corresponda. Devuelve si el mensaje se aceptó y con qué motivo
-(por ejemplo, `echo` si coincide con algo escrito por CueDesk).
+`kind` es `fader`, `send` o `preamp` (alias `headamp`); con `send` hace falta
+`bus`. `origin: "self"` marca un mensaje emitido por CueDesk (se descarta como
+eco); cualquier otro valor es la consola. Devuelve si se aceptó y con qué motivo
+(`external`, `own-echo`, `guard-locked`, `unknown-channel`, `not-a-level`).
 
-## 7. Rutas OSC
+### `GET /meters`
+
+Devuelve `{ levels: [{ channel, db }], at }` con la **última lectura** de cada
+canal con telemetría. Es el sondeo que usa la interfaz mientras no existe el
+canal en tiempo real: `ingestLevel` purga lo más viejo que `levelRetainMs`, así
+que un canal sin datos deja de publicarse y su vúmetro cae a la simulación.
+
+### Rutas de consola (transporte y puente)
+
+| Método y ruta | Cuerpo | Devuelve |
+| --- | --- | --- |
+| `GET /api/console/status` | — | Diagnóstico del driver: `connected`, `sent`, `echoesDropped`, `pending`, `echoWindowMs` y `transport`. |
+| `POST /api/console/osc` | `{ address, args?, value?, type? }` | `{ ok, address }`. |
+
+`POST /api/console/osc` es el **puente** de la interfaz para lo que el motor no
+gobierna (pan, nombre, color, routing…): escribe una ruta OSC cruda **a través
+del driver** (`ConsoleAdapter.writeRaw`) para que su eco se registre y se
+descarte, en vez de leerse como un gesto humano. Quien la use asume el mapeo
+ruta → dominio: si toca una magnitud de GainGuard (fader, previo, envío), además
+hay que informar al motor por su superficie de dominio.
+
+## 7. Rutas OSC (del driver)
+
+Estas rutas las conoce **sólo** el driver X32 (`packages/console-x32`); el motor
+no ve ninguna. Le llegan ya convertidas a dB.
 
 | Ruta | Tipo | Rango y paso |
 | --- | --- | --- |
-| `/headamp/NNN/gain` | lineal | −12 … +60 dB, paso 0,5 (`NNN` = canal − 1) |
-| `/auxin/NN/preamp/trim` | lineal | −18 … +18 dB, paso 0,25 |
+| `/headamp/NNN/gain` | dB | −12 … +60 dB, paso 0,5 |
+| `/headamp/NNN/phantom` | bool | — |
+| `/ch/NN/preamp/invert` | bool | — |
 | `/ch/NN/mix/fader` | *taper* | −90 … +10 dB (4 tramos) |
 | `/ch/NN/mix/YY/level` | *taper* | −90 … +10 dB (envío a bus) |
+| `/meters/1` | lineal | 0…1 (1,0 = 0 dBFS); 32 valores |
+
+El índice `NNN` del previo depende del banco —Local `000…031`, AES50 A
+`032…063`, AES50 B `080…111`—. El *taper* y la conversión lineal ↔ dB viven en
+`packages/console-x32/src/taper.ts`.
+
+Además de las escrituras de dominio, el driver expone `writeRaw(path, args, type?)`
+para el puente de la interfaz: pasa por el mismo camino, registra el eco con la
+tolerancia del control correspondiente (el previo admite el redondeo de 0,5 dB) y
+deduce el tipo OSC de la ruta cuando no se indica (`i` para el phantom, `f` para
+el resto).
 
 ## 8. Arranque y pruebas
 
@@ -213,7 +275,7 @@ node server.js [--port 8765] [--console <ip>] [--no-gg]
 
 ```
 npm start        # servidor
-npm test         # analizadores (JS) + motor y handler (TS)
+npm test         # motor, analizadores y driver (TS)
 ```
 
 ## 9. Pantalla GainGuard (frontend)
@@ -237,9 +299,27 @@ npm test         # analizadores (JS) + motor y handler (TS)
   mixer lo consulta (`GET /locks`, una vez por segundo) y en **modo GAIN** —el
   fader del previo— lo deja inerte (`pointer-events: none`, `aria-disabled`) con
   un rótulo **LOCK** en ámbar. En modo nivel el fader no se toca: no es el previo.
+- **Bloqueo base**: si GainGuard deja de corregir un canal por anomalías
+  sostenidas, el mixer lo rotula **BASE** en ámbar (también en modo GAIN), con una
+  «×» que re-arma el canal (`POST /api/gainguard/channels/:id/arm`). A diferencia
+  de **LOCK**, que dura lo que la guarda está moviendo el previo, **BASE** es
+  persistente hasta que el operador lo levanta.
+- **Vúmetros**: la interfaz sondea `GET /api/gainguard/meters` (~8 veces por
+  segundo) y vuelca el dB de cada canal directo a su vúmetro. Los canales sin dato
+  —aux, fx, bus…— siguen con la simulación, y en **modo GAIN** el vúmetro muestra
+  la señal de entrada del previo, no el nivel de mezcla.
 
 ## 10. Pendiente
 
+- **Puente en tiempo real**: hoy la interfaz ya puede escribir por
+  `POST /api/console/osc` y sondea los vúmetros por HTTP, pero falta el canal en
+  tiempo real (WebSocket/SSE) que empuje los vúmetros y los cambios que llegan de
+  la consola. La interfaz heredada todavía intenta hablar por
+  `ws://localhost:8080`, un servidor que no existe: es la deuda principal del
+  reparto de capas.
+- **`/meters/1` de la consola**: el driver ya lo escucha (el puerto local se abre
+  siempre) y lo convierte a dBFS, pero la interfaz aún no lo recibe; llega al
+  motor, no al vúmetro. Cuando exista el puente, se enganchará a `adapter.onLevels`.
 - **BusGuard decidido**: compensa **sólo los envíos** (nunca el fader) y, en modo
   **stealth**, los **16 buses** por defecto, sin elegir buses por canal ni añadir
   vista nueva. El interruptor de cabecera enciende/apaga únicamente esa

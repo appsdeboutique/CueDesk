@@ -3,6 +3,29 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 Versionado semántico (SemVer): `MAJOR.MINOR.PATCH`.
 
+## [1.0.25] — 2026-10-16
+
+### Added
+- **Arquitectura por paquetes**: el motor de GainGuard se reparte en tres paquetes (`@cuedesk/console-adapter`, `@cuedesk/console-x32` y `@cuedesk/core`) más la app (`apps/cuebox`). El motor habla **sólo** el contrato `ConsoleAdapter` —ni rutas OSC, ni *taper*, ni índices físicos de previo— y el driver X32 queda como el único sitio que traduce dominio ⇄ protocolo. `server.js` sigue siendo el arranque real.
+- **Preamp Block / AES50**: la resolución del banco de previo (Local, AES50 A, AES50 B) vive ahora en el driver; el contrato que consume la interfaz (`source`, `headampIndex`) no cambia.
+- **CueBox® en Ajustes**: nueva sub-sección que reúne consola y OSC, la red (ETH0/ETH1) y el MIDI, con su propio marcado (`cuebox`) y el nombre registrado en pantalla.
+- **`POST /api/console/osc`**: puente de escritura OSC cruda para todo lo que el motor no gobierna (pan, nombre, color, *routing*…). Escribe **a través del driver**, que registra y descarta su eco.
+- **`GET /api/console/status`**: diagnóstico del enlace —tramas enviadas, ecos descartados, pendientes y transporte— que hasta ahora no se exponía.
+- **`GET /api/gainguard/meters`**: última lectura de nivel por canal, para que el mixer pinte vúmetros reales por sondeo mientras no exista el puente en tiempo real.
+- **Bloqueo base visible y re-armable**: `GET /api/gainguard/locks` publica `baseLocked` y el mixer lo rotula **BASE** en ámbar, con una «×» que re-arma el canal.
+
+### Changed
+- **Escrituras de la interfaz por el driver**: las rutas crudas pasan por `writeRaw`, así que la consola devuelve el valor y el motor **no lo lee como un gesto humano** (antes se saltaba el filtro de ecos).
+- **Vúmetros reales en el mixer**: sondeo de `GET /api/gainguard/meters` (~8 veces por segundo) que vuelca el dB del motor al vúmetro de cada canal; los canales sin dato siguen con la simulación.
+
+### Fixed
+- **`oscEngine.listen()`**: pedía `address()` justo después de `bind()` —que es asíncrono— y lanzaba `EBADF`, de modo que la suite no llegaba a montarse. El puerto real se lee ahora en el evento `listening`.
+- **El puerto local de la consola se abre siempre** que el motor está activo (antes sólo con `--console`): los cambios que llegan de la consola, los ecos y la telemetría dejan de perderse en *dry-run*.
+- **Rótulos de bloqueo en el mixer**: **LOCK** y **BASE** se re-aplican al reconstruir el *rack* (antes no aparecían si el conjunto de canales bloqueados no cambiaba).
+
+### Removed
+- **`backend/`**: el servicio JavaScript antiguo, su enrutador y sus pruebas. Su contenido vive ahora en los paquetes (`packages/*`) y en `apps/cuebox`.
+
 ## [1.0.24] — 2026-10-15
 
 ### Added

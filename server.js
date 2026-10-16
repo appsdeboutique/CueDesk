@@ -11,8 +11,8 @@
  *  Raspberry Pi: evita las restricciones de file:// y deja el puerto
  *  listo para el puente WebSocket de la consola.
  *
- *  Backend: motor OSC (backend/osc) + suite GainGuard (backend/suite, TypeScript
- *  que Node ejecuta directamente) + enrutador de API (backend/http).
+ *  Composición: motor @cuedesk/core + driver @cuedesk/console-x32, sobre el
+ *  transporte OSC y el enrutador de API de apps/cuebox.
  *
  *  Si el puerto ya está ocupado (la app ya se está sirviendo) termina con
  *  código 0 y sin tocar nada, para que el lanzador abra el navegador igual.
@@ -23,8 +23,8 @@ const fs = require("fs");
 const path = require("path");
 const dgram = require("dgram");
 
-const oscEngine = require("./backend/osc/oscEngine");
-const { createRouter } = require("./backend/http/router");
+const oscEngine = require("./apps/cuebox/oscEngine");
+const { createRouter } = require("./apps/cuebox/router");
 
 const ROOT = __dirname;
 
@@ -32,7 +32,7 @@ const CONSOLE_IP_DEFAULT = "192.168.1.10";
 const CONSOLE_OSC_PORT = 10023;
 const IPV4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
 
-/** Decodificador OSC compartido (backend/osc): sonda y telemetría. */
+/** Decodificador OSC compartido (apps/cuebox): sonda y telemetría. */
 function parseOscArgs(buf) {
   return oscEngine.parseMessage(buf).args;
 }
@@ -121,7 +121,7 @@ const MIME = {
 };
 
 /* ---------------------------------------------------------------------------
- * Backend: motor OSC + suite GainGuard + enrutador de API
+ * Arranque del motor: transporte OSC + driver de consola + GainGuard
  * ------------------------------------------------------------------------ */
 
 const argConsole = argv.indexOf("--console");
@@ -133,12 +133,13 @@ const GG_ENABLED = argv.indexOf("--no-gg") === -1;
 
 const router = createRouter();
 
-/** Carga la suite (TypeScript, ESM) y la conecta al motor OSC. Sin consola
- *  (--console <ip>) el motor va en dry-run: misma lógica, sin tocar la red. */
+/** Compone el motor con el driver de la consola y lo cuelga del enrutador.
+ *  Sin `--console <ip>` el motor va en dry-run: misma lógica, sin tocar la red. */
 async function startSuite() {
-  const core = await import("./backend/suite/gainGuardEngine.ts");
-  const api = await import("./backend/suite/api.ts");
+  const core = await import("@cuedesk/core");
+  const x32 = await import("@cuedesk/console-x32");
 
+  /* Transporte: lo único que habla OSC (rutas, taper y ecos son del driver). */
   const osc = oscEngine.createOscEngine({
     mode: CONSOLE_IP ? "udp" : "dry-run",
     host: CONSOLE_IP || CONSOLE_IP_DEFAULT,
@@ -146,39 +147,29 @@ async function startSuite() {
     coalesceMs: 0,        // el motor ya pauta sus envíos (tick de 100 ms)
   });
 
-  const engine = new core.GainGuardEngine({
-    transport: {
-      send: function (msg) {
-        osc.send(msg.path, msg.value, "f");
-      },
-    },
-  });
+  /* Driver: traduce dominio ⇄ OSC (bancos de previo, taper, filtro de ecos). */
+  const adapter = new x32.X32Adapter({ link: osc });
+
+  /* Motor: sólo conoce `ConsoleAdapter`. Se suscribe al driver en el propio
+     constructor (cambios y telemetría): no hay cableado manual de rutas. */
+  const engine = new core.GainGuardEngine({ adapter: adapter });
   for (let n = 1; n <= 32; n++) engine.addChannel("ch." + String(n).padStart(2, "0"));
 
-  /* Ecos de la consola: el motor descarta los suyos y toma el resto como cambios. */
-  osc.on("/ch/*", function (args, p) { engine.ingestConsole(p, Number(args[0])); });
-  osc.on("/headamp/*", function (args, p) { engine.ingestConsole(p, Number(args[0])); });
+  await adapter.connect();
 
-  /* Telemetría. La correspondencia índice→canal de /meters/1 depende del banco
-     de vúmetros activo en la consola; valor por verificar con hardware real.
-     El camino fiable es POST /api/gainguard/meters. */
-  osc.on("/meters/1", function (args) {
-    const list = Array.isArray(args[0]) ? args[0] : args;
-    if (list.length !== 32) return;
-    list.forEach(function (v, i) {
-      const db = Number(Array.isArray(v) ? v[0] : v);
-      if (Number.isFinite(db)) engine.ingestLevel("ch." + String(i + 1).padStart(2, "0"), db);
-    });
-  });
+  /* Abrir el puerto local siempre que el motor esté activo: es por donde
+     entran los cambios movidos a mano en la consola, los ecos de lo que
+     escribimos y la telemetría /meters/1. Sin --console nadie contesta, pero
+     el puerto queda escuchando (y con él el camino de entrada completo). */
+  osc.listen(0);
 
-  if (CONSOLE_IP) osc.listen(0);
-  api.mountSuiteRoutes(router, engine);
+  core.mountSuiteRoutes(router, engine, adapter);
   engine.start();
-  return { engine: engine, osc: osc };
+  return { engine: engine, adapter: adapter, osc: osc };
 }
 
 const server = http.createServer(async (req, res) => {
-  // 1) API del backend (suite GainGuard y lo que venga después)
+  // 1) API del motor (GainGuard y lo que venga después)
   if (await router.handle(req, res)) return;
 
   // 2) Sonda de consola

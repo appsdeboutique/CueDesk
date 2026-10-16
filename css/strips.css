@@ -90,6 +90,46 @@
   pointer-events: none;
 }
 
+/* Bloqueo base: GainGuard dejó de corregir el canal (anomalías sostenidas).
+   Persistente y accionable: la «×» re-arma el canal (POST /arm). */
+.strip__baselock {
+  position: absolute;
+  top: 58%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 5px;
+  border: 1px solid var(--amber);
+  border-radius: var(--radius-sm);
+  background: rgba(9, 9, 12, 0.9);
+  color: var(--amber);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  box-shadow: 0 0 0 1px var(--amber-tint) inset;
+}
+
+.strip__baselock__x {
+  appearance: none;
+  padding: 0 1px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.strip__baselock__x:hover,
+.strip__baselock__x:focus-visible {
+  color: var(--text);
+  outline: none;
+}
+
 /* --- Display superior: barra de color + número + etiqueta --------------- */
 
 .strip__display {
@@ -1261,7 +1301,7 @@
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.62);
 }
 
-/* Cabecera en tres zonas: Channel Block a la izquierda, el rótulo centrado y
+/* Cabecera en tres zonas: Preamp Block a la izquierda, el rótulo centrado y
    BusGuard + cerrar a la derecha. Cada zona se pega a su borde con la columna
    central elástica, así el título queda centrado de verdad. */
 .gg__head {
@@ -1940,7 +1980,7 @@
     padding: 10px;
   }
 
-  /* Cabecera estrecha: Channel Block y BusGuard arriba (a cada lado) y el
+  /* Cabecera estrecha: Preamp Block y BusGuard arriba (a cada lado) y el
      rótulo debajo, centrado, sin que nada se solape. */
   .gg__head {
     grid-template-columns: 1fr auto;

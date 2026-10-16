@@ -72,6 +72,21 @@ CueDesk.Mixer = (function () {
   let gainMode = false;
   let activeStrips = [];
 
+  /* Bancos de previos del X32 y su primer índice OSC. La fuente de cada bloque
+     de 8 canales la fija GainGuard (Local, AES50 A, AES50 B); aquí sólo se
+     traduce a la ruta de la vista GAIN, para que el fader manual mueva el
+     mismo previo que las guardas. */
+  const HEADAMP_ORIGIN = { local: 0, aes50a: 32, aes50b: 80 };
+  const PREAMP_SOURCE_IDS = ["local", "aes50a", "aes50b"];
+  let preampSources = ["local", "local", "local", "local"];
+
+  function headampIndexFor(n) {
+    const block = Math.max(0, Math.min(3, Math.floor((n - 1) / 8)));
+    const src = preampSources[block];
+    const origin = Object.prototype.hasOwnProperty.call(HEADAMP_ORIGIN, src) ? HEADAMP_ORIGIN[src] : 0;
+    return origin + (n - 1);
+  }
+
   let rack, masterEl;
   let masterSlider = null;
   let masterTarget = "st";
@@ -248,8 +263,8 @@ CueDesk.Mixer = (function () {
           name: "/ch/" + id + "/config/name",
           color: "/ch/" + id + "/config/color",
           solo: "/-stat/solosw/" + id,       // ch01 → solosw/01
-          gain: "/headamp/" + p3(n - 1) + "/gain",
-          phantom: "/headamp/" + p3(n - 1) + "/phantom",
+          gain: "/headamp/" + p3(headampIndexFor(n)) + "/gain",
+          phantom: "/headamp/" + p3(headampIndexFor(n)) + "/phantom",
           invert: "/ch/" + id + "/preamp/invert",
         };
       case "aux":
@@ -370,6 +385,33 @@ CueDesk.Mixer = (function () {
 
   /* --------------------------------------------------- suscripciones (in) */
 
+  /* El previo (`/headamp`) depende del banco de previos del bloque del canal,
+     que fija GainGuard: si cambia, se rehace la suscripción. */
+  function bindGain(m) {
+    if (m.gainOff) {
+      m.gainOff();
+      m.gainOff = null;
+    }
+    if (!m.paths.gain) return;
+    m.gainOff = OSC.on(m.paths.gain, function (v) {
+      m.gainNorm = dB.clamp01((parseFloat(v) + 12) / 72);
+    });
+    lifeUnsubs.push(m.gainOff);
+  }
+
+  function bindPhantom(m) {
+    if (m.phantomOff) {
+      m.phantomOff();
+      m.phantomOff = null;
+    }
+    if (!m.paths.phantom) return;
+    m.phantomOff = OSC.on(m.paths.phantom, function (v) {
+      m.phantom = isOn(v);
+      refreshPreButtons(m);
+    });
+    lifeUnsubs.push(m.phantomOff);
+  }
+
   function ensureSubs(m) {
     if (m.subs) return;
     m.subs = true;
@@ -396,21 +438,8 @@ CueDesk.Mixer = (function () {
         })
       );
     }
-    if (m.paths.gain) {
-      lifeUnsubs.push(
-        OSC.on(m.paths.gain, function (v) {
-          m.gainNorm = dB.clamp01((parseFloat(v) + 12) / 72);
-        })
-      );
-    }
-    if (m.paths.phantom) {
-      lifeUnsubs.push(
-        OSC.on(m.paths.phantom, function (v) {
-          m.phantom = isOn(v);
-          refreshPreButtons(m);
-        })
-      );
-    }
+    bindGain(m);
+    bindPhantom(m);
     if (m.paths.invert) {
       lifeUnsubs.push(
         OSC.on(m.paths.invert, function (v) {
@@ -1514,10 +1543,45 @@ CueDesk.Mixer = (function () {
      rotulado. La autoridad es siempre el motor. */
 
   let guardLocked = new Set();
+  let guardBaseLocked = new Set();
   let guardLockTimer = null;
 
   function gainId(m) {
     return m && m.kind === "ch" && typeof m.n === "number" ? "ch." + p2(m.n) : null;
+  }
+
+  /** Insignia del bloqueo base, con botón para re-armar GainGuard. */
+  function baseLockBadge(id) {
+    const el = document.createElement("span");
+    el.className = "strip__baselock";
+    el.setAttribute("role", "status");
+    el.title =
+      "GainGuard dejó de corregir este canal (anomalías sostenidas). Pulsa × para re-armar.";
+    const text = document.createElement("span");
+    text.textContent = "BASE";
+    const x = document.createElement("button");
+    x.type = "button";
+    x.className = "strip__baselock__x";
+    x.textContent = "×";
+    x.title = "Re-armar GainGuard en este canal";
+    x.setAttribute("aria-label", "Re-armar GainGuard en este canal");
+    x.addEventListener("click", function (e) {
+      e.stopPropagation();
+      releaseBaseLock(id);
+    });
+    el.appendChild(text);
+    el.appendChild(x);
+    return el;
+  }
+
+  function releaseBaseLock(id) {
+    if (typeof fetch !== "function" || !id) return;
+    fetch("/api/gainguard/channels/" + encodeURIComponent(id) + "/arm", { method: "POST" })
+      .then(function () {
+        guardBaseLocked.delete(id);
+        applyGainLocks();
+      })
+      .catch(function () {});
   }
 
   function applyGainLocks() {
@@ -1543,7 +1607,40 @@ CueDesk.Mixer = (function () {
       } else if (!locked && badge) {
         badge.remove();
       }
+
+      /* Bloqueo base: GainGuard detectó anomalías sostenidas y dejó de corregir
+         el canal. Es persistente hasta que el operador re-arma (POST /arm). */
+      const baseLocked = !!(gainMode && id && guardBaseLocked.has(id));
+      const baseBadge = sec.querySelector(".strip__baselock");
+      if (baseLocked && !baseBadge) sec.appendChild(baseLockBadge(id));
+      else if (!baseLocked && baseBadge) baseBadge.remove();
     });
+  }
+
+  /* El banco de previos de cada bloque lo fija GainGuard. La vista GAIN debe
+     apuntar al mismo /headamp; cuando cambia, se rehacen las rutas y las
+     suscripciones de los modelos y se repinta el rack (conserva fader/mute). */
+  function applyPreampSources(map) {
+    if (!map) return;
+    const next = [0, 1, 2, 3].map(function (block) {
+      const v = map["ch." + p2(block * 8 + 1)];
+      return PREAMP_SOURCE_IDS.indexOf(v) >= 0 ? v : "local";
+    });
+    const same = next.every(function (v, i) { return v === preampSources[i]; });
+    if (same) return;
+    preampSources = next;
+    store.forEach(function (m) {
+      if (m.kind !== "ch") return;
+      m.paths = pathsFor("ch", m.n);
+      bindGain(m);
+      bindPhantom(m);
+    });
+    rebuild();
+  }
+
+  /** ¿El conjunto `set` tiene exactamente los ids de `list`? */
+  function sameIds(set, list) {
+    return list.length === set.size && list.every(function (id) { return set.has(id); });
   }
 
   function pollGainLocks() {
@@ -1553,15 +1650,58 @@ CueDesk.Mixer = (function () {
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (data) {
         const list = data && Array.isArray(data.locks) ? data.locks : [];
-        const same =
-          list.length === guardLocked.size &&
-          list.every(function (id) { return guardLocked.has(id); });
+        const base = data && Array.isArray(data.baseLocked) ? data.baseLocked : [];
+        const sameLocks = sameIds(guardLocked, list);
+        const sameBase = sameIds(guardBaseLocked, base);
         guardLocked = new Set(list);
-        if (!same) applyGainLocks();
+        guardBaseLocked = new Set(base);
+        if (!sameLocks || !sameBase) applyGainLocks();
+        if (data && data.sources) applyPreampSources(data.sources);
       })
       .catch(function () {})
       .then(function () {
         guardLockTimer = setTimeout(pollGainLocks, 1000);
+      });
+  }
+
+  /* Vúmetros por sondeo HTTP. Mientras no existe puente en tiempo real, el
+     motor publica la última lectura de cada canal (GET /api/gainguard/meters, ya
+     en dB) y aquí se vuelca directo a `m.ext`, el mismo sitio que lee el
+     vúmetro. No se pasa por `applyMeterPacket` para no depender de su heurística
+     linear/dB: el motor habla dB. Los canales sin dato —aux, fx, bus…— se
+     quedan sin `ext` y caen a la simulación. Se espacia cuando la pestaña está
+     oculta o no es el mixer. */
+  let meterPollTimer = null;
+
+  function applyEngineMeters(levels) {
+    const at = perfNow();
+    const map = Object.create(null);
+    levels.forEach(function (r) {
+      if (r && typeof r.channel === "string") map[r.channel] = r.db;
+    });
+    activeStrips.forEach(function (m) {
+      const id = gainId(m);
+      if (!id) return;
+      const db = typeof map[id] === "number" ? map[id] : null;
+      m.ext = db === null ? null : { L: db, R: db, at: at };
+    });
+  }
+
+  function pollEngineMeters() {
+    meterPollTimer = null;
+    const view = CueDesk.app ? CueDesk.app.view : "mixer";
+    if (typeof fetch !== "function" || document.hidden || view !== "mixer") {
+      meterPollTimer = setTimeout(pollEngineMeters, 250);
+      return;
+    }
+    fetch("/api/gainguard/meters")
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        if (data && Array.isArray(data.levels)) applyEngineMeters(data.levels);
+      })
+      .catch(function () {})
+      .then(function () {
+        meterPollTimer = setTimeout(pollEngineMeters, 120);
       });
   }
 
@@ -1571,6 +1711,7 @@ CueDesk.Mixer = (function () {
     Meters.reset();
     renderRack();
     registerMasterMeters();
+    applyGainLocks();
   }
 
   /* --------------------------------------------------------------- API */
@@ -1630,6 +1771,7 @@ CueDesk.Mixer = (function () {
     wireMaster();
     Meters.start();
     pollGainLocks();
+    pollEngineMeters();
   }
 
   return {
