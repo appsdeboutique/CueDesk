@@ -20,7 +20,7 @@ CueDesk está partido en tres capas que no se miran entre sí:
 | `packages/console-adapter/src/adapter.ts` | Contrato `ConsoleAdapter`: el único lenguaje del motor (canales, dB, previo). |
 | `packages/console-adapter/src/link.ts` | Contrato `ConsoleLink`: el puerto de bajo nivel (`send` / `on` / `listen`). |
 | `packages/console-x32/src/X32Adapter.ts` | Driver X32: conversión, rutas, descarte de ecos y banco de previo por canal. |
-| `packages/console-x32/src/taper.ts` · `paths.ts` · `preamps.ts` | Taper de 4 tramos, rutas OSC y tabla de bancos de previo (Local / AES50 A / AES50 B). |
+| `packages/console-x32/src/taper.ts` · `paths.ts` · `preamps.ts` | Taper de 4 tramos, rutas OSC y tabla de bancos de previo (Local / Net Primary / Net Secondary). |
 | `packages/core/src/gainGuardEngine.ts` | Motor: ciclo de 100 ms, pipeline, estado por canal. |
 | `packages/core/src/guards.ts` | Decisiones puras (`baseVerdict`, `stageDecision`, `preDecision`, `busDelta`, `rmsOf`, `clamp`). |
 | `packages/core/src/types.ts` | Tipos y valores por defecto de toda la configuración. |
@@ -272,8 +272,8 @@ no ve ninguna. Le llegan ya convertidas a dB.
 | `/ch/NN/mix/YY/level` | *taper* | −90 … +10 dB (envío a bus) |
 | `/meters/1` | lineal | 0…1 (1,0 = 0 dBFS); 32 valores |
 
-El índice `NNN` del previo depende del banco —Local `000…031`, AES50 A
-`032…063`, AES50 B `080…111`—. El *taper* y la conversión lineal ↔ dB viven en
+El índice `NNN` del previo depende del banco —Local `000…031`, Net Primary
+`032…063`, Net Secondary `080…111`—. El *taper* y la conversión lineal ↔ dB viven en
 `packages/console-x32/src/taper.ts`.
 
 Además de las escrituras de dominio, el driver expone `writeRaw(path, args, type?)`

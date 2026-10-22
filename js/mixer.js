@@ -73,11 +73,11 @@ CueDesk.Mixer = (function () {
   let activeStrips = [];
 
   /* Bancos de previos del X32 y su primer índice OSC. La fuente de cada bloque
-     de 8 canales la fija GainGuard (Local, AES50 A, AES50 B); aquí sólo se
+     de 8 canales la fija GainGuard (Local, Net Primary, Net Secondary); aquí sólo se
      traduce a la ruta de la vista GAIN, para que el fader manual mueva el
      mismo previo que las guardas. */
-  const HEADAMP_ORIGIN = { local: 0, aes50a: 32, aes50b: 80 };
-  const PREAMP_SOURCE_IDS = ["local", "aes50a", "aes50b"];
+  const HEADAMP_ORIGIN = { local: 0, netprimary: 32, netsecondary: 80 };
+  const PREAMP_SOURCE_IDS = ["local", "netprimary", "netsecondary"];
   let preampSources = ["local", "local", "local", "local"];
 
   function headampIndexFor(n) {

@@ -29,7 +29,7 @@ export type PreampKind = "headamp" | "trim" | "none";
 
 /**
  * Banco de previos tal y como lo publica la consola. En un X32: Local,
- * AES50 A y AES50 B. Cada uno declara en qué índice de su propio espacio
+ * Net Primary y Net Secondary. Cada uno declara en qué índice de su propio espacio
  * empieza el banco (`firstIndex`), que es lo que el driver usa para
  * direccionar `/headamp/NNN`.
  */

@@ -24,7 +24,7 @@
       /ch/NN/config/name      string [12]
       /ch/NN/config/color     enum {OFF,RD,GN,YE,BL,MG,CY,WH}
       /headamp/NNN/gain       linf [-12 … +60, 0.5]   (vista GAIN · canales)
-                              NNN: 000-031 Local · 032-079 AES50 A · 080-127 AES50 B
+                              NNN: 000-031 Local · 032-079 Net Primary · 080-127 Net Secondary
       /auxin/NN/preamp/trim   linf [-18 … +18, 0.25]  (vista GAIN · aux)
       /auxin/NN/… · /fxrtn/NN/… · /bus/NN/… · /dca/N/{fader,on}
       /main/st/mix/fader · /main/st/mix/on · /main/m/…
@@ -294,53 +294,37 @@
       <section class="view view--routing" data-view-panel="routing" hidden>
         <div class="viewbar routing__bar">
           <nav class="viewbar-tabs" role="tablist" aria-label="Routing">
+            <button type="button" class="tab" role="tab" aria-selected="false" data-routing-tab="global">Global</button>
             <button type="button" class="tab is-active" role="tab" aria-selected="true" data-routing-tab="inputs">Inputs</button>
-            <button type="button" class="tab" role="tab" aria-selected="false" data-routing-tab="aes50">AES50</button>
-            <button type="button" class="tab" role="tab" aria-selected="false" data-routing-tab="card">Card</button>
-            <button type="button" class="tab" role="tab" aria-selected="false" data-routing-tab="xlr">XLR</button>
-            <button type="button" class="tab" role="tab" aria-selected="false" data-routing-tab="out">Out 1-16</button>
-            <button type="button" class="tab" role="tab" aria-selected="false" data-routing-tab="outdelay">Out Delay</button>
-            <button type="button" class="tab" role="tab" aria-selected="false" data-routing-tab="auxout">Aux Out</button>
-            <button type="button" class="tab" role="tab" aria-selected="false" data-routing-tab="ultranet">Ultranet</button>
-            <button type="button" class="tab" role="tab" aria-selected="false" data-routing-tab="iq">iQ Setup</button>
-            <button type="button" class="tab" role="tab" aria-selected="false" data-routing-tab="userin">User In</button>
-            <button type="button" class="tab" role="tab" aria-selected="false" data-routing-tab="userout">User Out</button>
+            <button type="button" class="tab" role="tab" aria-selected="false" data-routing-tab="outputs">Outputs</button>
           </nav>
         </div>
         <div class="routing__body">
+          <section class="routing__pane" data-routing-pane="global" hidden>
+            <div data-routing-render="global"></div>
+          </section>
           <section class="routing__pane is-active" data-routing-pane="inputs">
-            <div class="routing__extra" data-routing-extra="inputs"></div>
             <div data-routing-render="inputs"></div>
           </section>
-          <section class="routing__pane" data-routing-pane="aes50" hidden>
-            <div data-routing-render="aes50"></div>
-          </section>
-          <section class="routing__pane" data-routing-pane="card" hidden>
-            <div data-routing-render="card"></div>
-          </section>
-          <section class="routing__pane" data-routing-pane="xlr" hidden>
-            <div data-routing-render="xlr"></div>
-          </section>
-          <section class="routing__pane" data-routing-pane="out" hidden>
-            <div data-routing-render="out"></div>
-          </section>
-          <section class="routing__pane" data-routing-pane="outdelay" hidden>
-            <p class="setup__hint">Pendiente: rutas de Out Delay no confirmadas.</p>
-          </section>
-          <section class="routing__pane" data-routing-pane="auxout" hidden>
-            <p class="setup__hint">Pendiente: rutas de Aux Out no confirmadas.</p>
-          </section>
-          <section class="routing__pane" data-routing-pane="ultranet" hidden>
-            <p class="setup__hint">Pendiente: rutas de Ultranet no confirmadas.</p>
-          </section>
-          <section class="routing__pane" data-routing-pane="iq" hidden>
-            <p class="setup__hint">Pendiente: iQ Setup (Turbosound) no confirmado en OSC.</p>
-          </section>
-          <section class="routing__pane" data-routing-pane="userin" hidden>
-            <p class="setup__hint">Pendiente: User In no confirmado en los headers.</p>
-          </section>
-          <section class="routing__pane" data-routing-pane="userout" hidden>
-            <p class="setup__hint">Pendiente: User Out (/config/userrout/out/NN) con codificación de valores por confirmar.</p>
+          <section class="routing__pane" data-routing-pane="outputs" hidden>
+            <p class="routing__hint">
+              <b>XLR sockets</b> listen to one bank of four at a time.
+              <b>Out 1-16</b> define what each logical output carries;
+              <b>User Out</b> is an optional custom bank (this tab edits
+              slots 1-16). A block set to User Out uses the <b>User Out</b>
+              column; otherwise that column is stored but not in the XLR path.
+              <span class="routing__hint-key">
+                <span class="routing__hint-out">Cyan</span> marks the Out layer;
+                <span class="routing__hint-userout">amber</span> marks User Out.
+              </span>
+            </p>
+            <div data-routing-render="outputs-physical"></div>
+            <div class="routing__seg" role="group" aria-label="Vista de salidas">
+              <button type="button" class="tab is-active" aria-pressed="true" data-outputs-view="list">Lista</button>
+              <button type="button" class="tab" aria-pressed="false" data-outputs-view="matrix">Matriz</button>
+            </div>
+            <div data-routing-render="outputs-list"></div>
+            <div data-routing-render="outputs-matrix" hidden></div>
           </section>
         </div>
       </section>

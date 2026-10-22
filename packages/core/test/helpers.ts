@@ -51,8 +51,8 @@ export interface Call {
   type?: string;
 }
 
-/** Mismo reparto de bancos que la X32: local 0, AES50 A 32, AES50 B 80. */
-const PREAMP_OFFSETS: Record<string, number> = { local: 0, aes50a: 32, aes50b: 80 };
+/** Mismo reparto de bancos que la X32: local 0, Net Primary 32, Net Secondary 80. */
+const PREAMP_OFFSETS: Record<string, number> = { local: 0, netprimary: 32, netsecondary: 80 };
 
 const CAPABILITIES: ConsoleCapabilities = {
   channels: 32,
@@ -61,8 +61,8 @@ const CAPABILITIES: ConsoleCapabilities = {
   sendsArePostEq: true,
   preampBanks: [
     { id: "local", label: "Local", firstIndex: 0, count: 32 },
-    { id: "aes50a", label: "AES50 A", firstIndex: 32, count: 32 },
-    { id: "aes50b", label: "AES50 B", firstIndex: 80, count: 32 },
+    { id: "netprimary", label: "Net Primary", firstIndex: 32, count: 32 },
+    { id: "netsecondary", label: "Net Secondary", firstIndex: 80, count: 32 },
   ],
 };
 

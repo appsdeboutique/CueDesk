@@ -185,7 +185,7 @@ HTTP los recompone para no romper el contrato que ya consume la interfaz:
 ```ts
 // api.ts — decorate()
 Object.assign({}, ch, {
-  source: adapter.preampBankOf(id),           // "local" | "aes50a" | "aes50b"
+  source: adapter.preampBankOf(id),           // "local" | "netprimary" | "netsecondary"
   headampIndex: adapter.preampRoutingOf(id).index, // índice físico /headamp/NNN
 });
 ```
@@ -592,7 +592,7 @@ El mixer **no** decide: pregunta quién está bloqueado y lo refleja.
 - Un canal con **bloqueo base** (`baseLocked`) recibe el rótulo **BASE** (ámbar) con una
   **×** que dispara `POST /api/gainguard/channels/:id/arm`. Persistente hasta que el
   operador lo levante.
-- `applyPreampSources()` fija el banco de previo de cada bloque (Local / AES50 A / AES50 B)
+- `applyPreampSources()` fija el banco de previo de cada bloque (Local / Net Primary / Net Secondary)
   para que la vista GAIN apunte al mismo `/headamp`.
 - **Vúmetros**: `pollEngineMeters()` (~8 Hz) → `GET /api/gainguard/meters`; en modo GAIN el
   vúmetro muestra la **entrada del previo**, no el nivel de mezcla.
@@ -739,7 +739,7 @@ interface ConfigRequest {
     threshold?: number | string;           // "±5 dB" | "off" | -18 …
     stage?: Partial<StageGuardConfig>;
     pre?: Partial<PreGuardConfig>;
-    source?: string;                       // banco de previo (driver): "local" | "aes50a" | "aes50b"
+    source?: string;                       // banco de previo (driver): "local" | "netprimary" | "netsecondary"
     buses?: number[];
   }>;
 }

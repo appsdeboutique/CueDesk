@@ -5,15 +5,15 @@
  * canal. El protocolo no oficial de la familia X32/M32 expone
  *
  *     /headamp/000…031   Local
- *     /headamp/032…079   AES50 A   (el puerto expone hasta 48 entradas)
- *     /headamp/080…127   AES50 B
+ *     /headamp/032…079   Net Primary   (el puerto expone hasta 48 entradas)
+ *     /headamp/080…127   Net Secondary
  *
  * CueDesk gobierna 32 entradas por banco (4 bloques de 8), así que la tabla
  * que se usa es la de `PREAMP_BANKS`.
  *
  * ESTA TABLA ES DEL DRIVER. El motor la ignora por completo: cuando quiere
  * mover el previo del canal 9, dice `setPreampGain("ch.09", 18)` y aquí se
- * resuelve si toca `/headamp/008` (local) o `/headamp/032` (AES50 A, canal 1).
+ * resuelve si toca `/headamp/008` (local) o `/headamp/032` (Net Primary, canal 1).
  *
  * Nota de honestidad técnica: la correspondencia canal ↔ entrada del banco se
  * asume IDENTIDAD (el canal N toma la entrada N del banco). Queda por
@@ -24,26 +24,26 @@
 
 import type { PreampBank } from "@cuedesk/console-adapter";
 
-export type PreampSource = "local" | "aes50a" | "aes50b";
+export type PreampSource = "local" | "netprimary" | "netsecondary";
 
 /** Bancos que CueDesk gobierna, en el orden de la interfaz. */
 export const PREAMP_BANKS: PreampBank[] = [
   { id: "local", label: "Local", firstIndex: 0, count: 32 },
-  { id: "aes50a", label: "AES50 A", firstIndex: 32, count: 32 },
-  { id: "aes50b", label: "AES50 B", firstIndex: 80, count: 32 },
+  { id: "netprimary", label: "Net Primary", firstIndex: 32, count: 32 },
+  { id: "netsecondary", label: "Net Secondary", firstIndex: 80, count: 32 },
 ];
 
-export const PREAMP_SOURCES: PreampSource[] = ["local", "aes50a", "aes50b"];
+export const PREAMP_SOURCES: PreampSource[] = ["local", "netprimary", "netsecondary"];
 
 /** Índice de la primera entrada de cada banco (`/headamp/NNN`). */
 export const HEADAMP_BASE: Record<PreampSource, number> = {
   local: 0,
-  aes50a: 32,
-  aes50b: 80,
+  netprimary: 32,
+  netsecondary: 80,
 };
 
 export function isPreampSource(v: unknown): v is PreampSource {
-  return v === "local" || v === "aes50a" || v === "aes50b";
+  return v === "local" || v === "netprimary" || v === "netsecondary";
 }
 
 export function isBankId(v: unknown): boolean {

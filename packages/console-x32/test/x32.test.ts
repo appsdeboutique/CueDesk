@@ -69,7 +69,7 @@ test("las rutas entrantes se leen y lo ajeno no encaja", function () {
 
 test("el driver publica los tres bancos de previo", function () {
   const { adapter } = make();
-  assert.deepEqual(adapter.capabilities.preampBanks.map(function (b) { return b.id; }), ["local", "aes50a", "aes50b"]);
+  assert.deepEqual(adapter.capabilities.preampBanks.map(function (b) { return b.id; }), ["local", "netprimary", "netsecondary"]);
   assert.equal(adapter.capabilities.preamp, "headamp");
   assert.equal(adapter.capabilities.sendsArePostEq, true);
 });
@@ -77,20 +77,20 @@ test("el driver publica los tres bancos de previo", function () {
 test("el índice del previo sale del banco y del canal", function () {
   assert.equal(headampIndexOf("local", 1), 0);
   assert.equal(headampIndexOf("local", 32), 31);
-  assert.equal(headampIndexOf("aes50a", 1), 32);
-  assert.equal(headampIndexOf("aes50a", 32), 63);
-  assert.equal(headampIndexOf("aes50b", 9), 88);
+  assert.equal(headampIndexOf("netprimary", 1), 32);
+  assert.equal(headampIndexOf("netprimary", 32), 63);
+  assert.equal(headampIndexOf("netsecondary", 9), 88);
 });
 
 test("vuelta atrás por rango: cada índice es de un banco", function () {
   assert.deepEqual(resolveHeadampIndex(0), { bankId: "local", entry: 1 });
   assert.deepEqual(resolveHeadampIndex(31), { bankId: "local", entry: 32 });
-  assert.deepEqual(resolveHeadampIndex(32), { bankId: "aes50a", entry: 1 });
-  assert.deepEqual(resolveHeadampIndex(88), { bankId: "aes50b", entry: 9 });
-  /* Los puertos AES50 exponen 48, pero CueDesk gobierna 32: 64…79 quedan fuera. */
+  assert.deepEqual(resolveHeadampIndex(32), { bankId: "netprimary", entry: 1 });
+  assert.deepEqual(resolveHeadampIndex(88), { bankId: "netsecondary", entry: 9 });
+  /* Los puertos NET exponen 48, pero CueDesk gobierna 32: 64…79 quedan fuera. */
   assert.equal(resolveHeadampIndex(64), null);
   assert.equal(resolveHeadampIndex(79), null);
-  assert.deepEqual(resolveHeadampIndex(80), { bankId: "aes50b", entry: 1 });
+  assert.deepEqual(resolveHeadampIndex(80), { bankId: "netsecondary", entry: 1 });
   assert.equal(resolveHeadampIndex(200), null);
 });
 
@@ -103,13 +103,13 @@ test("por defecto el canal gobierna el previo local", async function () {
   assert.deepEqual(link.sent[0], { path: "/headamp/000/gain", value: 20, type: "f" });
 });
 
-test("asignar AES50 A direcciona el previo del otro banco", async function () {
+test("asignar Net Primary direcciona el previo del otro banco", async function () {
   const { adapter, link } = make();
   await adapter.connect();
-  adapter.assignPreampBank("ch.01", "aes50a");
-  assert.deepEqual(adapter.preampRoutingOf("ch.01"), { bankId: "aes50a", index: 32 });
-  adapter.assignPreampBank("ch.09", "aes50b");
-  assert.deepEqual(adapter.preampRoutingOf("ch.09"), { bankId: "aes50b", index: 88 });
+  adapter.assignPreampBank("ch.01", "netprimary");
+  assert.deepEqual(adapter.preampRoutingOf("ch.01"), { bankId: "netprimary", index: 32 });
+  adapter.assignPreampBank("ch.09", "netsecondary");
+  assert.deepEqual(adapter.preampRoutingOf("ch.09"), { bankId: "netsecondary", index: 88 });
 
   adapter.setPreampGain("ch.01", 19.5);
   assert.deepEqual(link.sent[0], { path: "/headamp/032/gain", value: 19.5, type: "f" });
@@ -118,7 +118,7 @@ test("asignar AES50 A direcciona el previo del otro banco", async function () {
 test("un banco desconocido se rechaza", async function () {
   const { adapter } = make();
   await adapter.connect();
-  assert.throws(function () { adapter.assignPreampBank("ch.01", "aes50c"); }, ConsoleAdapterError);
+  assert.throws(function () { adapter.assignPreampBank("ch.01", "netc"); }, ConsoleAdapterError);
 });
 
 /* ------------------------------------------------------- dominio ⇄ consola */
@@ -147,7 +147,7 @@ test("el previo de otro banco no es de este canal", async function () {
   const changes: ControlChange[] = [];
   adapter.onChanges(function (c) { changes.push(c); });
   await adapter.connect();
-  adapter.assignPreampBank("ch.01", "aes50a");
+  adapter.assignPreampBank("ch.01", "netprimary");
 
   link.receive("/headamp/000/gain", 20);
   assert.equal(changes.length, 0, "el previo local ya no es del canal");
@@ -306,7 +306,7 @@ test("una trama de metros incompleta se ignora", async function () {
 test("el phantom se escribe en el índice del banco correcto", async function () {
   const { adapter, link } = make();
   await adapter.connect();
-  adapter.assignPreampBank("ch.09", "aes50b");
+  adapter.assignPreampBank("ch.09", "netsecondary");
   adapter.setPreampPhantom("ch.09", true);
   assert.deepEqual(link.sent[0], { path: "/headamp/088/phantom", value: 1, type: "i" });
 });

@@ -8,7 +8,7 @@
  * sitio del sistema que conoce las rutas de esta consola.
  *
  * Responsabilidades que absorbe (y que antes tenía repartidas el motor):
- *   · Direccionar el previo: banco (Local / AES50 A / AES50 B) + índice.
+ *   · Direccionar el previo: banco (Local / Net Primary / Net Secondary) + índice.
  *   · Convertir dB ⇄ valor de cable (taper de faders y envíos).
  *   · Descartar los ECOS de lo que escribe CueDesk (ventana + tolerancia por
  *     tipo de control), para que el motor no reaccione a su propio eco.

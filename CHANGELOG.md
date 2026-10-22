@@ -3,11 +3,17 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 Versionado semántico (SemVer): `MAJOR.MINOR.PATCH`.
 
+## [Unreleased]
+
+### Changed
+- **Routing**: la vista se reduce a **Global**, **Inputs** y **Outputs**. Global aplica un origen de partida a los 32 canales o a las 16 salidas y, en el caso de las salidas, elige la capa física de los XLR (**Out 1-16**, **User Out 1-16** o **sin cambios**); las excepciones se ajustan después en Inputs y Outputs. Aplicar **Off** pide confirmación y las rutas se reflejan al instante.
+- **Routing › Outputs**: la capa física (cuatro bloques XLR) y la lógica (Out 1-16) conviven en la misma pestaña. La tabla mantiene **Source · User Out · Output · Mode**, agrupa las filas cada cuatro y muestra la ruta viva a los XLR; la matriz añade un punto de estado por salida. Los nombres y colores reales de canales y buses se refrescan por OSC.
+
 ## [1.0.25] — 2026-10-16
 
 ### Added
 - **Arquitectura por paquetes**: el motor de GainGuard se reparte en tres paquetes (`@cuedesk/console-adapter`, `@cuedesk/console-x32` y `@cuedesk/core`) más la app (`apps/cuebox`). El motor habla **sólo** el contrato `ConsoleAdapter` —ni rutas OSC, ni *taper*, ni índices físicos de previo— y el driver X32 queda como el único sitio que traduce dominio ⇄ protocolo. `server.js` sigue siendo el arranque real.
-- **Preamp Block / AES50**: la resolución del banco de previo (Local, AES50 A, AES50 B) vive ahora en el driver; el contrato que consume la interfaz (`source`, `headampIndex`) no cambia.
+- **Preamp Block / NET**: la resolución del banco de previo (Local, Net Primary, Net Secondary) vive ahora en el driver; el contrato que consume la interfaz (`source`, `headampIndex`) no cambia.
 - **CueBox® en Ajustes**: nueva sub-sección que reúne consola y OSC, la red (ETH0/ETH1) y el MIDI, con su propio marcado (`cuebox`) y el nombre registrado en pantalla.
 - **`POST /api/console/osc`**: puente de escritura OSC cruda para todo lo que el motor no gobierna (pan, nombre, color, *routing*…). Escribe **a través del driver**, que registra y descarta su eco.
 - **`GET /api/console/status`**: diagnóstico del enlace —tramas enviadas, ecos descartados, pendientes y transporte— que hasta ahora no se exponía.
@@ -88,9 +94,9 @@ Versionado semántico (SemVer): `MAJOR.MINOR.PATCH`.
 ## [1.0.20] — 2026-10-14
 
 ### Added
-- **Vista Routing**: barra de once subpestañas (Inputs, AES50, Card, XLR, Out 1-16, Out Delay, Aux Out, Ultranet, iQ Setup, User In, User Out), con la distribución de X32-Edit.
-- **Inputs**: rejilla de rutas de canal (`/config/routing/IN/…`), con grupos Local, AES50 A/B, Card y User In. Desplegables de Aux In Remap (`/config/routing/IN/AUX`) y Play remap (`/config/routing/PLAY/AUX`).
-- **AES50**: salidas de las seis secciones de cada banco (`/config/routing/AES50A|B/…`).
+- **Vista Routing**: barra de once subpestañas (Inputs, NET, Card, XLR, Out 1-16, Out Delay, Aux Out, Ultranet, iQ Setup, User In, User Out), con la distribución de X32-Edit.
+- **Inputs**: rejilla de rutas de canal (`/config/routing/IN/…`), con grupos Local, Net Primary/Secondary, Card y User In. Desplegables de Aux In Remap (`/config/routing/IN/AUX`) y Play remap (`/config/routing/PLAY/AUX`).
+- **NET**: salidas de las seis secciones de cada banco de red (Net Primary / Net Secondary).
 - **Card**: cuatro filas de salidas (`/config/routing/CARD/…`).
 - **XLR**: cuatro filas de salidas (`/config/routing/OUT/…`).
 - **Out 1-16**: tabla continua de origen por salida física (`/outputs/main/NN/src`) con Phase (`/invert`), tap por fila (`/pos`) y desplegable **Default Signal Tap** guardado en local. El scroll lateral ancla al inicio de cada bloque (Off, Main, Mix Bus, Matrix, Dir Ch, Dir Aux, Dir FX, Monitor) para que ninguna sección quede cortada.
@@ -134,7 +140,7 @@ Versionado semántico (SemVer): `MAJOR.MINOR.PATCH`.
 - **Mixer**: todas las opciones de la pantalla de X32-Edit. Las que no tienen ruta OSC confirmada quedan deshabilitadas.
 - **GUI Prefs**: preferencias locales guardadas en `localStorage` (`cuedesk.setup.local`). Todavía no cambian el comportamiento de la app.
 - **Midi Control**: `/-prefs/remote/ioenable` como máscara de bits (MIDI In/Out, Card MIDI, Program change, Fader pos CC, Ch mute CC).
-- **Preamps**: bloques de 8 canales con botón 48V, fader vertical de ganancia (-12 … +60 dB) y escala. Los bloques AES50 quedan deshabilitados.
+- **Preamps**: bloques de 8 canales con botón 48V, fader vertical de ganancia (-12 … +60 dB) y escala. Los bloques NET quedan deshabilitados.
 - **Card**: sólo muestra sus opciones cuando `/-stat/xcardtype` es distinto de 0.
 - **Detección de consola**: endpoint `/api/console` en `server.js` (envía `/info` por UDP a 192.168.1.10:10023) y tarjeta de detección en Connection.
 

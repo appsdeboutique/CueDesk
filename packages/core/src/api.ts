@@ -18,7 +18,7 @@
  * modo (rms | lufs) y el desplegable de umbral (Off · ±3/±5 dB · −18/−23 LUFS)
  * se mandan juntos. «Off» en el umbral apaga la normalización del canal.
  * La fuente del previo (`source`) es el banco al que apuntan las guardas:
- * Local (`000…`), AES50 A (`032…`) o AES50 B (`080…`) en un X32.
+ * Local (`000…`), Net Primary (`032…`) o Net Secondary (`080…`) en un X32.
  *
  * Nota de arquitectura: esta capa es la FRONTERA. El motor sólo habla de
  * dominio (`source` no existe para él); aquí se compone con el driver para
@@ -51,7 +51,7 @@ function parseThreshold(v: unknown): number | undefined {
   return undefined;
 }
 
-/** Ids de los bancos que publica el driver (Local, AES50 A, AES50 B…). */
+/** Ids de los bancos que publica el driver (Local, Net Primary, Net Secondary…). */
 function bankIds(adapter: ConsoleAdapter): string[] {
   return adapter.capabilities.preampBanks.map(function (b) { return b.id; });
 }

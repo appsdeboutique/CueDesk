@@ -40,7 +40,7 @@ export interface ConsoleAdapter {
   setPreampPhantom(channel: ChannelId, on: boolean): void;
 
   /**
-   * Banco de previos al que apunta el canal (Local, AES50 A, AES50 B…).
+   * Banco de previos al que apunta el canal (Local, Net Primary, Net Secondary…).
    * Debe existir en `capabilities.preampBanks`.
    */
   assignPreampBank(channel: ChannelId, bankId: string): void;
