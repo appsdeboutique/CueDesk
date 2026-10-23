@@ -304,7 +304,17 @@
             <div data-routing-render="global"></div>
           </section>
           <section class="routing__pane is-active" data-routing-pane="inputs">
-            <div data-routing-render="inputs"></div>
+            <p class="routing__hint">
+              <b>Input blocks</b> feed eight channels at a time. Set a block to
+              <b>User In</b> to use each channel's <b>User In</b> slot; direct
+              banks (Local, Net, Card) feed the eight channels in order.
+              <span class="routing__hint-key">
+                <span class="routing__hint-direct">Cyan</span> marks a direct block;
+                <span class="routing__hint-userin">amber</span> marks User In.
+              </span>
+            </p>
+            <div data-routing-render="inputs-physical"></div>
+            <div data-routing-render="inputs-list"></div>
           </section>
           <section class="routing__pane" data-routing-pane="outputs" hidden>
             <p class="routing__hint">

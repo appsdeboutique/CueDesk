@@ -969,6 +969,47 @@ CueDesk.app = { view: "mixer" };
 
   const XLR_OPTIONS = { left: xlrOptions(true), right: xlrOptions(false) };
 
+  /* --------------------------------------------------- Inputs (capa física) */
+
+  /* Cuatro bloques de ocho canales. /config/routing/IN/<bloque> elige un
+     banco de ocho entradas (Local, Net, Card o User In); los ocho canales
+     del bloque se reparten ese banco en orden. Enum: 0-3 Local, 4-9 Net
+     Primary, 10-15 Net Secondary, 16-19 Card, 20-23 User In. */
+  const IN_BLOCKS = [
+    { id: "1-8", start: 1, end: 8, default: 0 },
+    { id: "9-16", start: 9, end: 16, default: 1 },
+    { id: "17-24", start: 17, end: 24, default: 2 },
+    { id: "25-32", start: 25, end: 32, default: 3 },
+  ];
+
+  const IN_BLOCK_STATE = new Map();
+  IN_BLOCKS.forEach(function (block) {
+    IN_BLOCK_STATE.set(block.id, { value: block.default, known: false });
+  });
+
+  function inBlockOptions() {
+    function bank(label, base, count) {
+      const options = [];
+      for (let i = 0; i < count; i++) {
+        const first = i * 8 + 1;
+        options.push({
+          value: base + i,
+          label: label + " " + first + "-" + (first + 7),
+        });
+      }
+      return { label: label, options: options };
+    }
+    return [
+      bank("User In", 20, 4),
+      bank("Local", 0, 4),
+      bank("Net Primary", 4, 6),
+      bank("Net Secondary", 10, 6),
+      bank("Card", 16, 4),
+    ];
+  }
+
+  const IN_BLOCK_OPTIONS = inBlockOptions();
+
   function xlrOptionLabel(block, value) {
     const groups = XLR_OPTIONS[block.left ? "left" : "right"];
     for (let i = 0; i < groups.length; i++) {
@@ -1083,6 +1124,127 @@ CueDesk.app = { view: "mixer" };
       sockets.push.apply(sockets, xlrSocketsForUserOut(slot));
     });
     return sockets;
+  }
+
+  /* User In 1-32: la capa lógica que sólo entra en el camino cuando el
+     bloque físico correspondiente está en User In. Se guarda siempre. */
+  const USER_IN_VALUES = new Map();
+
+  /* Estado de un bloque físico (0…23) y reparto de sus ocho canales. */
+  function inBlockInfo(value) {
+    if (value === null || value === undefined || value === "") {
+      return { kind: "unknown", label: "Waiting for console…", detail: "" };
+    }
+    const n = parseInt(value, 10);
+    if (!isFinite(n)) {
+      return { kind: "unknown", label: "Waiting for console…", detail: "" };
+    }
+    if (n >= 20 && n <= 23) {
+      const start = (n - 20) * 8 + 1;
+      return {
+        kind: "userin",
+        label: "User In " + start + "-" + (start + 7),
+        detail: "per-channel",
+        groupStart: start,
+      };
+    }
+    if (n >= 0 && n <= 3) {
+      const start = n * 8 + 1;
+      return {
+        kind: "direct",
+        label: "Local " + start + "-" + (start + 7),
+        detail: "direct",
+        sourceBase: start,
+      };
+    }
+    if (n >= 4 && n <= 9) {
+      const start = (n - 4) * 8 + 1;
+      return {
+        kind: "direct",
+        label: "Net Primary " + start + "-" + (start + 7),
+        detail: "direct",
+        sourceBase: 33 + (n - 4) * 8,
+      };
+    }
+    if (n >= 10 && n <= 15) {
+      const start = (n - 10) * 8 + 1;
+      return {
+        kind: "direct",
+        label: "Net Secondary " + start + "-" + (start + 7),
+        detail: "direct",
+        sourceBase: 81 + (n - 10) * 8,
+      };
+    }
+    if (n >= 16 && n <= 19) {
+      const start = (n - 16) * 8 + 1;
+      return {
+        kind: "direct",
+        label: "Card " + start + "-" + (start + 7),
+        detail: "direct",
+        sourceBase: 129 + (n - 16) * 8,
+      };
+    }
+    return {
+      kind: "unknown",
+      label: "Value " + n + " (unknown)",
+      detail: "",
+    };
+  }
+
+  function inBlockForChannel(n) {
+    for (let i = 0; i < IN_BLOCKS.length; i++) {
+      const block = IN_BLOCKS[i];
+      if (n >= block.start && n <= block.end) return block;
+    }
+    return null;
+  }
+
+  /* Entrada efectiva de un canal: banco directo del bloque o el slot User
+     In que le toca dentro del grupo elegido. */
+  function inSourceForChannel(n) {
+    const block = inBlockForChannel(n);
+    if (!block) return { value: null, layer: "unknown", slot: null };
+    const state = IN_BLOCK_STATE.get(block.id);
+    const info = inBlockInfo(state ? state.value : null);
+    if (info.kind === "userin") {
+      const slot = info.groupStart + (n - block.start);
+      return {
+        value: USER_IN_VALUES.has(slot) ? USER_IN_VALUES.get(slot) : 0,
+        layer: "userin",
+        slot: slot,
+      };
+    }
+    if (info.kind === "direct") {
+      return {
+        value: info.sourceBase + (n - block.start),
+        layer: "direct",
+        slot: null,
+      };
+    }
+    return { value: null, layer: "unknown", slot: null };
+  }
+
+  /* Canales que reciben un slot User In. Un mismo grupo puede estar
+     elegido por varios bloques, así que un slot puede alimentar varios. */
+  function inChannelsForSlot(slot) {
+    const channels = [];
+    IN_BLOCKS.forEach(function (block) {
+      const state = IN_BLOCK_STATE.get(block.id);
+      const info = inBlockInfo(state ? state.value : null);
+      if (info.kind !== "userin") return;
+      const offset = slot - info.groupStart;
+      if (offset >= 0 && offset < 8) channels.push(block.start + offset);
+    });
+    return channels;
+  }
+
+  /* "Ch 01, 09" / "Ch 01-02" a partir de una lista de canales. */
+  function formatChannels(list) {
+    const text = formatSockets(list);
+    if (!text) return "";
+    return "Ch " + text.replace(/\d+/g, function (n) {
+      return String(parseInt(n, 10)).padStart(2, "0");
+    });
   }
 
   /* Nombre y color que la consola publica por OSC. Las claves de color son
@@ -1334,6 +1496,86 @@ CueDesk.app = { view: "mixer" };
     };
   }
 
+  /* Traduce /config/userrout/in/NN a la entrada que lleva la señal. Las
+     entradas físicas no tienen nombre en la consola; sólo Aux In publica
+     nombre/color, así que el resto se queda con su etiqueta de banco. */
+  function inSourceInfo(value) {
+    if (value === null || value === undefined || value === "") {
+      return {
+        label: "—",
+        detail: "esperando consola",
+        namePath: null,
+        colorPath: null,
+      };
+    }
+    const n = parseInt(value, 10);
+    if (!isFinite(n) || n === 0) {
+      return {
+        label: "Off",
+        detail: "sin señal",
+        namePath: null,
+        colorPath: null,
+      };
+    }
+    if (n >= 1 && n <= 32) {
+      return {
+        label: "Local " + n,
+        detail: "Local",
+        namePath: null,
+        colorPath: null,
+      };
+    }
+    if (n >= 33 && n <= 80) {
+      return {
+        label: "Net Primary " + (n - 32),
+        detail: "Net Primary",
+        namePath: null,
+        colorPath: null,
+      };
+    }
+    if (n >= 81 && n <= 128) {
+      return {
+        label: "Net Secondary " + (n - 80),
+        detail: "Net Secondary",
+        namePath: null,
+        colorPath: null,
+      };
+    }
+    if (n >= 129 && n <= 160) {
+      return {
+        label: "Card " + (n - 128),
+        detail: "Card",
+        namePath: null,
+        colorPath: null,
+      };
+    }
+    if (n >= 161 && n <= 166) {
+      const k = n - 160;
+      const id = String(k).padStart(2, "0");
+      return {
+        label: "Aux In " + id,
+        detail: "Aux In",
+        namePath: "/auxin/" + id + "/config/name",
+        colorPath: "/auxin/" + id + "/config/color",
+        seedColor: ROUTE_CH_COLORS["aux:" + k],
+      };
+    }
+    if (n === 167 || n === 168) {
+      return {
+        label: n === 167 ? "TB Internal" : "TB External",
+        detail: "TB",
+        namePath: null,
+        colorPath: null,
+      };
+    }
+    return {
+      label: "src " + n,
+      detail: "desconocido",
+      namePath: null,
+      colorPath: null,
+    };
+  }
+
   /* Selector doble: primero la sección (Local, Net Primary…) y después el
      número dentro de ella (1…32, 1…48…). El valor OSC es section.base + k. */
   function sourcePicker(sections, name) {
@@ -1444,12 +1686,6 @@ CueDesk.app = { view: "mixer" };
     return table;
   }
 
-  function routingCell(child) {
-    const td = document.createElement("td");
-    td.appendChild(child);
-    return td;
-  }
-
   /* Global: rellena de una vez las fuentes individuales de Inputs/Outputs.
      Después se pueden corregir filas concretas en sus pestañas. */
   function renderGlobal(box) {
@@ -1487,7 +1723,9 @@ CueDesk.app = { view: "mixer" };
 
     function applyInputs(value) {
       ["1-8", "9-16", "17-24", "25-32"].forEach(function (block, i) {
-        CueDesk.OSC.send("/config/routing/IN/" + block, 20 + i, "i", { commit: true });
+        const path = "/config/routing/IN/" + block;
+        CueDesk.OSC.send(path, 20 + i, "i", { commit: true });
+        CueDesk.OSC.receive(path, 20 + i);
       });
       let section = null;
       for (let i = 0; i < USER_IN_SECTIONS.length; i++) {
@@ -1613,6 +1851,9 @@ CueDesk.app = { view: "mixer" };
             physicalMode === "userout" ? "User Out 1-16" : "unchanged"
           );
         }
+        if (title === "Inputs") {
+          text += " · blocks → User In 1-32";
+        }
         summary.textContent = text;
       }
 
@@ -1635,7 +1876,7 @@ CueDesk.app = { view: "mixer" };
 
     grid.appendChild(card(
       "Inputs",
-      "Set a starting source for the Source column on every channel, then adjust exceptions in Inputs. Applying also puts the four input blocks in User In.",
+      "Set a starting source for every channel's User In slot, then adjust exceptions in Inputs. Applying also puts the four input blocks in User In.",
       USER_IN_SECTIONS,
       X32_CHANNELS,
       applyInputs
@@ -1653,38 +1894,304 @@ CueDesk.app = { view: "mixer" };
     box.appendChild(grid);
   }
 
-  function renderInputList(box) {
-    const table = routingTable(["Channel", "Source"]);
-    for (let n = 1; n <= X32_CHANNELS; n++) {
-      const id = String(n).padStart(2, "0");
-      const path = "/config/userrout/in/" + id;
-      const picker = sourcePicker(USER_IN_SECTIONS, "Source of channel " + n);
-      picker.onChange(function (v) {
-        CueDesk.OSC.send(path, v, "i", { commit: true });
+  /* --------------------------------------------------- Inputs: dos capas */
+
+  const INPUT_LIST_ROWS = [];
+  const INPUT_GROUP_ROWS = [];
+  const IN_CARDS = [];
+
+  /* Tira superior: los cuatro bloques físicos de entrada. Cada tarjeta
+     elige el banco de ocho que escucha ese grupo de canales. */
+  function renderInputsPhysical(box) {
+    IN_CARDS.length = 0;
+    const strip = document.createElement("div");
+    strip.className = "xlr-strip xlr-strip--inputs";
+
+    IN_BLOCKS.forEach(function (block) {
+      const path = "/config/routing/IN/" + block.id;
+      const card = document.createElement("section");
+      card.className = "xlr-card xlr-card--input";
+      card.dataset.block = block.id;
+
+      const head = document.createElement("div");
+      head.className = "xlr-card__head";
+      const title = document.createElement("span");
+      title.className = "xlr-card__title";
+      title.textContent = "Ch " + block.id;
+      const dot = document.createElement("span");
+      dot.className = "xlr-card__dot";
+      head.appendChild(title);
+      head.appendChild(dot);
+
+      const sel = document.createElement("select");
+      sel.className = "route-select xlr-card__select";
+      sel.setAttribute("aria-label", "Physical source of input block " + block.id);
+      IN_BLOCK_OPTIONS.forEach(function (group) {
+        const og = document.createElement("optgroup");
+        og.label = group.label;
+        group.options.forEach(function (opt) {
+          const op = document.createElement("option");
+          op.value = String(opt.value);
+          op.textContent = opt.label;
+          og.appendChild(op);
+        });
+        sel.appendChild(og);
       });
+
+      const feed = document.createElement("p");
+      feed.className = "xlr-card__feed";
+
+      card.appendChild(head);
+      card.appendChild(sel);
+      card.appendChild(feed);
+      strip.appendChild(card);
+
+      let extra = null;
+      let lastValue;
+
+      function paint() {
+        const state = IN_BLOCK_STATE.get(block.id);
+        const value = state.value;
+        if (value !== lastValue) {
+          lastValue = value;
+          if (extra) {
+            extra.remove();
+            extra = null;
+          }
+          sel.value = String(value);
+          if (sel.value !== String(value)) {
+            extra = document.createElement("option");
+            extra.value = String(value);
+            extra.textContent = "Value " + value + " (unknown)";
+            sel.appendChild(extra);
+            sel.value = String(value);
+          }
+        }
+        const info = inBlockInfo(value);
+        card.dataset.layer = info.kind;
+        dot.title = info.label;
+        if (info.kind === "unknown") {
+          feed.textContent = info.label;
+        } else {
+          feed.textContent = info.label + " → Ch " + block.id + " · " + info.detail +
+            (state.known ? "" : " (default)");
+        }
+      }
+
+      sel.addEventListener("change", function () {
+        const value = parseInt(sel.value, 10);
+        if (!isFinite(value)) return;
+        CueDesk.OSC.send(path, value, "i", { commit: true });
+        CueDesk.OSC.receive(path, value);
+      });
+
       CueDesk.OSC.on(path, function (v) {
-        const k = parseInt(v, 10);
-        if (isFinite(k)) picker.setValue(k);
+        const value = parseInt(v, 10);
+        if (!isFinite(value)) return;
+        IN_BLOCK_STATE.set(block.id, { value: value, known: true });
+        refreshInputLayers();
       });
-      const tr = document.createElement("tr");
-      const th = document.createElement("th");
-      const label = routeLabel(id, "Channel " + id);
-      label.setFallback("CH " + id);
-      label.bind(
-        "/ch/" + id + "/config/name",
-        "/ch/" + id + "/config/color",
-        null,
-        ROUTE_CH_COLORS["ch:" + n]
+
+      IN_CARDS.push({ block: block, paint: paint });
+      paint();
+    });
+
+    box.appendChild(strip);
+  }
+
+  /* Refresca tarjetas, cabeceras de grupo y filas cuando cambia un bloque
+     físico o un slot User In. */
+  function refreshInputLayers() {
+    IN_CARDS.forEach(function (entry) { entry.paint(); });
+
+    INPUT_GROUP_ROWS.forEach(function (group) {
+      const state = IN_BLOCK_STATE.get(group.block.id);
+      const info = inBlockInfo(state ? state.value : null);
+      group.path.textContent = "";
+      if (info.kind === "unknown") {
+        group.path.textContent = info.label;
+        group.path.classList.add("is-off");
+        return;
+      }
+      group.path.classList.remove("is-off");
+      const span = document.createElement("span");
+      span.className = "route-group__part route-group__part--" + info.kind;
+      span.textContent = info.label + " → Ch " + group.block.id + " · " + info.detail;
+      group.path.appendChild(span);
+    });
+
+    INPUT_LIST_ROWS.forEach(function (row) {
+      const source = inSourceForChannel(row.n);
+      const info = inSourceInfo(source.value);
+      const targets = inChannelsForSlot(row.n);
+      const slotActive = targets.length > 0;
+      const slotValue = USER_IN_VALUES.get(row.n) || 0;
+
+      row.tr.classList.toggle("is-direct-live", source.layer === "direct");
+      row.tr.classList.toggle("is-userin-live", source.layer === "userin");
+      row.userInCell.classList.toggle("is-dim", !slotActive);
+      row.sourceCell.classList.toggle(
+        "is-dim",
+        source.layer === "unknown" || info.label === "Off"
       );
-      th.appendChild(label.el);
+
+      row.userInTarget.textContent = slotActive ? "→ " + formatChannels(targets) : "";
+      row.userInTarget.hidden = !slotActive;
+      row.userInTarget.title = slotActive
+        ? "User In " + outputPad(row.n) + " feeds " + formatChannels(targets)
+        : "";
+
+      const stored = !slotActive && slotValue !== 0;
+      row.userInStored.hidden = !stored;
+      row.userInStored.title = stored
+        ? "Stored, but not in the current input path"
+        : "";
+
+      const key = [
+        info.label, info.detail, info.namePath, info.colorPath,
+        info.seedName, info.seedColor, source.value,
+      ].join("|");
+      if (key !== row.sourceKey) {
+        row.sourceKey = key;
+        row.sourceLabel.setFallback(info.label, info.detail);
+        row.sourceLabel.bind(info.namePath, info.colorPath, info.seedName, info.seedColor);
+      }
+
+      row.layerTag.textContent = source.layer === "userin"
+        ? "UIn " + outputPad(source.slot)
+        : source.layer === "direct"
+          ? "direct"
+          : "";
+      row.layerTag.hidden = source.layer === "unknown";
+      row.layerTag.className = "route-tag route-tag--" +
+        (source.layer === "userin" ? "userin" : "direct");
+      row.layerTag.title = source.layer === "userin"
+        ? "Ch " + outputPad(row.n) + " follows User In " + outputPad(source.slot)
+        : source.layer === "direct"
+          ? "Ch " + outputPad(row.n) + " follows its physical block directly"
+          : "";
+    });
+  }
+
+  /* Lista lógica: una fila por canal, agrupada cada ocho. Source muestra la
+     entrada efectiva; User In es la capa editable por canal; Channel es la
+     identidad con nombre/color reales y la etiqueta de capa activa. */
+  function renderInputList(box) {
+    INPUT_LIST_ROWS.length = 0;
+    INPUT_GROUP_ROWS.length = 0;
+
+    const table = routingTable(["Source", "User In", "Channel"]);
+    table.classList.add("route-list--inputs");
+
+    function groupHeader(block) {
+      const tr = document.createElement("tr");
+      tr.className = "route-group";
+      const th = document.createElement("th");
+      th.colSpan = 3;
+      const label = document.createElement("span");
+      label.className = "route-group__label";
+      label.textContent = "Ch " + block.id;
+      const path = document.createElement("span");
+      path.className = "route-group__path";
+      th.appendChild(label);
+      th.appendChild(path);
       tr.appendChild(th);
-      tr.appendChild(routingCell(picker.el));
       table.appendChild(tr);
+      INPUT_GROUP_ROWS.push({ block: block, path: path });
     }
+
+    IN_BLOCKS.forEach(function (block) {
+      groupHeader(block);
+      for (let n = block.start; n <= block.end; n++) {
+        const id = outputPad(n);
+        const path = "/config/userrout/in/" + id;
+
+        const userIn = sourcePicker(USER_IN_SECTIONS, "User In source of channel " + n);
+
+        const sourceCell = document.createElement("td");
+        sourceCell.className = "route-source-cell";
+        const sourceWrap = document.createElement("div");
+        sourceWrap.className = "route-source route-source--input";
+        const sourceLabel = routeLabel("", "Input of Ch " + id, { hideNumber: true });
+        sourceLabel.setFallback("—", "esperando consola");
+        sourceWrap.appendChild(sourceLabel.el);
+        sourceCell.appendChild(sourceWrap);
+
+        const userInCell = document.createElement("td");
+        userInCell.className = "route-userin-cell";
+        const userInWrap = document.createElement("div");
+        userInWrap.className = "route-source route-source--userin";
+        const userInTarget = document.createElement("span");
+        userInTarget.className = "route-tag route-tag--userin";
+        const userInStored = document.createElement("span");
+        userInStored.className = "route-tag route-tag--via";
+        userInStored.textContent = "stored";
+        userInWrap.appendChild(userIn.el);
+        userInWrap.appendChild(userInTarget);
+        userInWrap.appendChild(userInStored);
+        userInCell.appendChild(userInWrap);
+
+        const channelCell = document.createElement("td");
+        channelCell.className = "route-channel-cell";
+        const channelWrap = document.createElement("div");
+        channelWrap.className = "route-source route-source--channel";
+        const channelLabel = routeLabel(id, "Channel " + id);
+        channelLabel.setFallback("CH " + id);
+        channelLabel.bind(
+          "/ch/" + id + "/config/name",
+          "/ch/" + id + "/config/color",
+          null,
+          ROUTE_CH_COLORS["ch:" + n]
+        );
+        const layerTag = document.createElement("span");
+        layerTag.className = "route-tag";
+        channelWrap.appendChild(channelLabel.el);
+        channelWrap.appendChild(layerTag);
+        channelCell.appendChild(channelWrap);
+
+        const tr = document.createElement("tr");
+        tr.className = "route-row";
+        tr.dataset.ch = id;
+        tr.appendChild(sourceCell);
+        tr.appendChild(userInCell);
+        tr.appendChild(channelCell);
+        table.appendChild(tr);
+
+        const row = {
+          n: n,
+          tr: tr,
+          sourceCell: sourceCell,
+          userInCell: userInCell,
+          userInTarget: userInTarget,
+          userInStored: userInStored,
+          sourceLabel: sourceLabel,
+          layerTag: layerTag,
+          sourceKey: null,
+        };
+        INPUT_LIST_ROWS.push(row);
+
+        function applyUserIn(value) {
+          const k = parseInt(value, 10);
+          const safe = isFinite(k) ? k : 0;
+          USER_IN_VALUES.set(n, safe);
+          userIn.setValue(safe);
+          refreshInputLayers();
+        }
+
+        userIn.onChange(function (v) {
+          CueDesk.OSC.send(path, v, "i", { commit: true });
+          applyUserIn(v);
+        });
+        CueDesk.OSC.on(path, applyUserIn);
+        applyUserIn(USER_IN_VALUES.has(n) ? USER_IN_VALUES.get(n) : 0);
+      }
+    });
+
     const wrap = document.createElement("div");
     wrap.className = "route-scroll";
     wrap.appendChild(table);
     box.appendChild(wrap);
+    refreshInputLayers();
   }
 
   /* --------------------------------------------------- Outputs: dos capas */
@@ -2487,7 +2994,9 @@ CueDesk.app = { view: "mixer" };
   function initRouting() {
     const globalBox = document.querySelector('[data-routing-render="global"]');
     if (globalBox) renderGlobal(globalBox);
-    const inBox = document.querySelector('[data-routing-render="inputs"]');
+    const inPhysicalBox = document.querySelector('[data-routing-render="inputs-physical"]');
+    if (inPhysicalBox) renderInputsPhysical(inPhysicalBox);
+    const inBox = document.querySelector('[data-routing-render="inputs-list"]');
     if (inBox) renderInputList(inBox);
     const physicalBox = document.querySelector('[data-routing-render="outputs-physical"]');
     if (physicalBox) renderOutputsPhysical(physicalBox);
@@ -2496,6 +3005,7 @@ CueDesk.app = { view: "mixer" };
     const matrixBox = document.querySelector('[data-routing-render="outputs-matrix"]');
     if (matrixBox) renderOutGrid(matrixBox);
     refreshXlrUi();
+    refreshInputLayers();
     window.addEventListener("resize", queueOutFit);
 
     const outViews = Array.prototype.slice.call(document.querySelectorAll("[data-outputs-view]"));

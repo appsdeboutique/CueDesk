@@ -8,6 +8,7 @@ Versionado semántico (SemVer): `MAJOR.MINOR.PATCH`.
 ### Changed
 - **Routing**: la vista se reduce a **Global**, **Inputs** y **Outputs**. Global aplica un origen de partida a los 32 canales o a las 16 salidas y, en el caso de las salidas, elige la capa física de los XLR (**Out 1-16**, **User Out 1-16** o **sin cambios**); las excepciones se ajustan después en Inputs y Outputs. Aplicar **Off** pide confirmación y las rutas se reflejan al instante.
 - **Routing › Outputs**: la capa física (cuatro bloques XLR) y la lógica (Out 1-16) conviven en la misma pestaña. La tabla mantiene **Source · User Out · Output · Mode**, agrupa las filas cada cuatro y muestra la ruta viva a los XLR; la matriz añade un punto de estado por salida. Los nombres y colores reales de canales y buses se refrescan por OSC.
+- **Routing › Inputs**: la capa física (cuatro bloques de entrada) y la lógica (User In 1-32) conviven en la misma pestaña. La tabla mantiene **Source · User In · Channel**, agrupa las filas cada ocho y muestra la entrada efectiva, los tags `direct`/`UIn NN`, el destino de cada slot y el estado `stored`. Los bloques y slots se reflejan al instante con eco local.
 
 ## [1.0.25] — 2026-10-16
 

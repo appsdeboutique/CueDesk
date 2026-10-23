@@ -1823,6 +1823,16 @@
   font-weight: 600;
 }
 
+.routing__hint-direct {
+  color: var(--cyan);
+  font-weight: 600;
+}
+
+.routing__hint-userin {
+  color: var(--amber);
+  font-weight: 600;
+}
+
 .xlr-strip {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1838,11 +1848,13 @@
   background: var(--bg-card);
 }
 
-.xlr-card[data-layer="out"] {
+.xlr-card[data-layer="out"],
+.xlr-card[data-layer="direct"] {
   border-color: rgba(0, 192, 206, 0.42);
 }
 
-.xlr-card[data-layer="userout"] {
+.xlr-card[data-layer="userout"],
+.xlr-card[data-layer="userin"] {
   border-color: rgba(255, 179, 0, 0.42);
 }
 
@@ -1868,12 +1880,14 @@
   background: var(--text-faint);
 }
 
-.xlr-card[data-layer="out"] .xlr-card__dot {
+.xlr-card[data-layer="out"] .xlr-card__dot,
+.xlr-card[data-layer="direct"] .xlr-card__dot {
   background: var(--cyan);
   box-shadow: 0 0 8px var(--cyan-glow);
 }
 
-.xlr-card[data-layer="userout"] .xlr-card__dot {
+.xlr-card[data-layer="userout"] .xlr-card__dot,
+.xlr-card[data-layer="userin"] .xlr-card__dot {
   background: var(--amber);
 }
 
@@ -1893,11 +1907,13 @@
   line-height: 1.3;
 }
 
-.xlr-card[data-layer="out"] .xlr-card__feed {
+.xlr-card[data-layer="out"] .xlr-card__feed,
+.xlr-card[data-layer="direct"] .xlr-card__feed {
   color: rgba(0, 192, 206, 0.85);
 }
 
-.xlr-card[data-layer="userout"] .xlr-card__feed {
+.xlr-card[data-layer="userout"] .xlr-card__feed,
+.xlr-card[data-layer="userin"] .xlr-card__feed {
   color: rgba(255, 179, 0, 0.85);
 }
 
@@ -1942,6 +1958,38 @@
   min-width: 140px;
 }
 
+/* Lista de Inputs: Source (efectiva) · User In (editable) · Channel. */
+.route-list.route-list--inputs td {
+  width: auto;
+}
+
+.route-list.route-list--inputs th:first-child {
+  min-width: 200px;
+}
+
+.route-list--inputs .route-source-cell {
+  min-width: 200px;
+  text-align: left;
+}
+
+.route-list--inputs .route-userin-cell {
+  min-width: 260px;
+  text-align: left;
+}
+
+.route-list--inputs .route-channel-cell {
+  min-width: 190px;
+  text-align: left;
+}
+
+.route-list--inputs .route-userin-cell .route-select--group {
+  min-width: 112px;
+}
+
+.route-list--inputs .route-userin-cell .route-select--item {
+  min-width: 64px;
+}
+
 .route-list .route-group th {
   padding: 6px 10px;
   border-top: 1px solid var(--line-strong);
@@ -1968,6 +2016,14 @@
 }
 
 .route-group__part--userout {
+  color: var(--amber);
+}
+
+.route-group__part--direct {
+  color: var(--cyan);
+}
+
+.route-group__part--userin {
   color: var(--amber);
 }
 
@@ -2023,6 +2079,16 @@
   color: var(--amber);
 }
 
+.route-tag--direct {
+  border-color: rgba(0, 192, 206, 0.42);
+  color: var(--cyan);
+}
+
+.route-tag--userin {
+  border-color: rgba(255, 179, 0, 0.42);
+  color: var(--amber);
+}
+
 .route-tag--via {
   color: var(--text-faint);
 }
@@ -2036,6 +2102,18 @@
 }
 
 .route-row.is-userout-live > .route-userout-cell {
+  box-shadow: inset 2px 0 0 var(--amber);
+}
+
+.route-row.is-direct-live > .route-source-cell {
+  box-shadow: inset 2px 0 0 var(--cyan);
+}
+
+.route-row.is-userin-live > .route-source-cell {
+  box-shadow: inset 2px 0 0 var(--amber);
+}
+
+.route-row > .route-userin-cell:not(.is-dim) {
   box-shadow: inset 2px 0 0 var(--amber);
 }
 
@@ -2084,6 +2162,19 @@
   .route-list--outputs th:first-child,
   .route-list--outputs .route-source-cell {
     min-width: 210px;
+  }
+
+  .route-list--inputs th:first-child,
+  .route-list--inputs .route-source-cell {
+    min-width: 170px;
+  }
+
+  .route-list--inputs .route-userin-cell {
+    min-width: 210px;
+  }
+
+  .route-list--inputs .route-channel-cell {
+    min-width: 160px;
   }
 }
 
