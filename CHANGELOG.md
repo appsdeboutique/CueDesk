@@ -5,6 +5,13 @@ Versionado semántico (SemVer): `MAJOR.MINOR.PATCH`.
 
 ## [Unreleased]
 
+## [1.0.28] — 2026-10-23
+
+### Added
+- **PA / Speaker Alignment (core)**: módulo de dominio en `@cuedesk/core` para alinear y proteger zonas de altavoz. `SpeakerZoneProcessing` vincula una salida lógica (`outputId`) con su retardo (`SystemDelay`), la polaridad, el cruce HPF/LPF (`CrossoverFilter`) y el limitador (`LimiterSettings`); las pendientes se limitan a 12/18/24/48 dB por octava y los tipos de cruce a Butterworth, Linkwitz-Riley y Bessel. La integración visual —panel contextual abierto desde la columna `Output`— llega en la siguiente iteración, sin pestañas nuevas.
+- **Acústica**: `calculateDelayMs(metros, °C)` y `calculateMeters(ms, °C)` aplican `v(T) = 331.3 + 0.606·T` con 20 °C por defecto, redondean a 2 decimales y son inversas entre sí; una entrada no finita devuelve `0` en lugar de contaminar la escena.
+- **Escena**: `ActiveRoute` incorpora `speakerZone?: SpeakerZoneProcessing`, de modo que la alineación viaja plana y ligera en el JSON de escena. Al ser opcional, las escenas sin PA siguen cargando sin migración.
+
 ## [1.0.27] — 2026-10-23
 
 ### Changed

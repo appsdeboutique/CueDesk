@@ -10,6 +10,9 @@
  * ========================================================================== */
 
 export * from "./types.ts";
+export * from "./types/pa-alignment.ts";
+export * from "./types/scene.ts";
+export * from "./utils/acoustics.ts";
 export * from "./guards.ts";
 export * from "./httpError.ts";
 export { GainGuardEngine } from "./gainGuardEngine.ts";
